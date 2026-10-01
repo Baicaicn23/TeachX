@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="当前状态" src="https://img.shields.io/badge/status-P1%20%E5%BC%80%E5%8F%91%E4%B8%AD-brightgreen">
+  <img alt="当前状态" src="https://img.shields.io/badge/status-P2%20%E6%A0%B8%E5%BF%83%E5%AE%8C%E6%88%90-brightgreen">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.12-blue">
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.142-009688">
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black">
@@ -22,7 +22,7 @@ Web 项目。它保留了 AI 学习产品真正有价值的核心：流式 Agent
 
 ## 当前状态
 
-P0 已完成并通过端到端验证；P1 核心开发已经完成，正在等待真实供应商 API 联调。
+P0、P1 已完成；P2 知识库核心链路已经完成，真实供应商 API 和向量检索仍待后续验证。
 
 | 模块 | 状态 |
 | --- | --- |
@@ -34,10 +34,14 @@ P0 已完成并通过端到端验证；P1 核心开发已经完成，正在等�
 | 计算器工具调用 | 可用 |
 | Mock 模型 | 可用 |
 | OpenAI 兼容模型适配器 | 已实现流式输出和工具参数拼接，等待真实供应商 API 联调 |
+| 知识库 | 支持 TXT、Markdown、PDF 上传，FTS5 检索和来源事件 |
 
 P1 的核心开发已经完成：`complete` 与 `stream` 双接口、真实 token 流式输出、
 工具参数分片拼接、能力模式提示词、会话标题生成和更完整的工具事件都已加入。
-真实模型的线上联调将在配置 API Key 后继续验证。
+
+P2 核心链路也已经完成：知识库创建、文档上传、文本提取、段落切块、SQLite FTS5
+全文索引、`knowledge_search` 工具和 `sources` 引用事件都能端到端运行。下一阶段将增加
+向量检索、文档删除与索引管理的进阶能力。
 
 ## 为什么使用 TeachX
 
@@ -135,6 +139,9 @@ export OPENAI_BASE_URL=https://api.openai.com/v1
 - 计算器工具调用，并记录调用 ID、状态和耗时
 - `chat`、`deep_solve`、`deep_question` 的专属提示词
 - 自动生成会话标题，并提供本地兜底标题
+- 知识库创建、文件和 PDF 上传
+- 文档提取、段落切块和 SQLite FTS5 全文检索
+- `knowledge_search` 工具与来源引用事件
 - 原 DeepTutor 可选界面的兼容接口
 
 ## 项目结构
@@ -145,6 +152,7 @@ TeachX/
 │   ├── src/teachx/
 │   │   ├── api/             HTTP 与 WebSocket 适配层
 │   │   ├── providers/       Mock 与 OpenAI 兼容模型适配器
+│   │   ├── knowledge/       文档提取、切块、索引和检索
 │   │   ├── runtime/         Agent Loop 和工具系统
 │   │   └── storage/         SQLite 持久化
 │   └── tests/
@@ -188,6 +196,7 @@ npm run build
 - [01：一次提问的完整旅程](docs/tutorials/01-一次提问的完整旅程.md)
 - [02：从 `complete` 到 `stream`](docs/tutorials/02-从complete到stream.md)
 - [03：工具调用是怎么工作的](docs/tutorials/03-工具调用是怎么工作的.md)
+- [04：知识库与 RAG](docs/tutorials/04-知识库与RAG.md)
 
 ## 开发路线
 
@@ -195,7 +204,7 @@ npm run build
 | --- | --- | --- |
 | P0 | 可运行的 Web 与后端垂直切片 | 已完成 |
 | P1 | 真实流式模型、工具轨迹、能力提示词 | 核心已完成，待真实 API 联调 |
-| P2 | 知识库上传、检索与引用 | 计划中 |
+| P2 | 知识库上传、检索与引用 | 核心已完成，向量检索待开发 |
 | P3 | 登录认证、PostgreSQL、部署 | 计划中 |
 | P4 | CI、截图、在线演示与简历文档 | 计划中 |
 

@@ -26,6 +26,7 @@ Next.js Web 界面
 - `api`：HTTP 与 WebSocket 适配层。
 - `runtime`：Agent Loop、能力模式和工具系统。
 - `providers`：Mock 与 OpenAI 兼容模型适配器。
+- `knowledge`：文档提取、切块、索引和检索。
 - `storage`：会话、消息和回合事件的持久化。
 
 ## Agent Loop
@@ -37,6 +38,21 @@ Next.js Web 界面
 3. 如果模型请求工具，执行工具并追加 `tool` 消息。
 4. 继续调用模型，直到得到最终回答或达到最大轮数。
 5. 保存用户消息、助手消息和完整事件。
+
+## 知识库链路
+
+```text
+上传文件
+→ extractors 提取纯文本
+→ chunker 切分片段
+→ KnowledgeService 写入 SQLite
+→ FTS5 建立全文索引
+→ knowledge_search 执行检索
+→ sources 事件返回引用
+```
+
+知识库原文保存在 `data/knowledge/`，不进入 Git。数据库保存文档元数据和提取文本，
+FTS5 保存可搜索的文本块。
 
 ## Provider 接口
 

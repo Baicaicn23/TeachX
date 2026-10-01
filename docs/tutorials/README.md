@@ -21,6 +21,7 @@
 | [01](01-一次提问的完整旅程.md) | 一次提问从浏览器到数据库的完整路径 | `frontend/`、`backend/` |
 | [02](02-从complete到stream.md) | `async`、`await`、异步生成器和流式输出 | `providers/`、`runtime/engine.py` |
 | [03](03-工具调用是怎么工作的.md) | 消息角色、工具 schema、工具调用闭环 | `runtime/tools.py`、`runtime/engine.py` |
+| [04](04-知识库与RAG.md) | 上传、提取、切块、FTS5、检索和引用 | `knowledge/`、`runtime/tools.py` |
 
 ## 学习方法
 
