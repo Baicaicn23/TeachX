@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS users (
     avatar TEXT NOT NULL DEFAULT '',
     learner_profile TEXT NOT NULL DEFAULT '{}',
     personalization_enabled INTEGER NOT NULL DEFAULT 1,
+    onboarding_completed INTEGER NOT NULL DEFAULT 1,
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL,
     last_login_at REAL NULL
@@ -148,6 +149,15 @@ class Database:
                 connection,
                 table="users",
                 column="personalization_enabled",
+                definition="INTEGER NOT NULL DEFAULT 1",
+            )
+            # Existing accounts predate first-run onboarding. Defaulting the
+            # migration to 1 prevents them from being forced through it, while
+            # new registrations explicitly insert 0.
+            await self._ensure_column(
+                connection,
+                table="users",
+                column="onboarding_completed",
                 definition="INTEGER NOT NULL DEFAULT 1",
             )
             await connection.execute(

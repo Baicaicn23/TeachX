@@ -13,6 +13,7 @@ class UserRecord:
     avatar: str = ""
     learner_profile: dict[str, object] | None = None
     personalization_enabled: bool = True
+    onboarding_completed: bool = True
 
     @property
     def is_admin(self) -> bool:

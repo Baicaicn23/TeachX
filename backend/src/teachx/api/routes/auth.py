@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
+from teachx.api.auth_dependencies import require_user
 from teachx.api.container import ApplicationContainer
 from teachx.api.dependencies import get_container
 from teachx.auth.models import LOCAL_USER, UserRecord
@@ -42,6 +43,7 @@ async def is_first_user(
 @router.post("/register")
 async def register(
     credentials: Credentials,
+    response: Response,
     container: ApplicationContainer = Depends(get_container),
 ) -> dict[str, object]:
     try:
@@ -51,12 +53,47 @@ async def register(
         )
     except AuthError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    # Registration is the start of the first-run flow, so establish the same
+    # session login would create and send the user directly to onboarding.
+    token = container.auth.create_token(user)
+    _set_auth_cookie(response, container, token)
     return {
         "user_id": user.id,
         "username": user.username,
         "role": user.role,
         "is_first_user": first_user,
+        "onboarding_completed": user.onboarding_completed,
     }
+
+
+@router.get("/onboarding")
+async def onboarding_status(
+    user: UserRecord = Depends(require_user),
+    container: ApplicationContainer = Depends(get_container),
+) -> dict[str, object]:
+    if not user.id:
+        return {"completed": True, "available": False, "learner_profile": None}
+    current = await container.auth.get_user(user.id)
+    if current is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    return {
+        "completed": current.onboarding_completed,
+        "available": True,
+        "learner_profile": current.learner_profile,
+    }
+
+
+@router.post("/onboarding/complete")
+async def complete_onboarding(
+    user: UserRecord = Depends(require_user),
+    container: ApplicationContainer = Depends(get_container),
+) -> dict[str, object]:
+    if not user.id:
+        return {"completed": True}
+    updated = await container.auth.complete_onboarding(user.id)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    return {"completed": updated.onboarding_completed}
 
 
 @router.post("/login")
@@ -122,4 +159,5 @@ def _status_payload(user: UserRecord | None, *, enabled: bool) -> dict[str, obje
         "preset": "standard",
         "avatar": user.avatar,
         "learning_policy": None,
+        "onboarding_completed": user.onboarding_completed,
     }

@@ -30,6 +30,8 @@ export interface AuthStatus {
       extensions: string[];
     };
   } | null;
+  /** False only for newly registered accounts or interrupted onboarding. */
+  onboarding_completed?: boolean;
 }
 
 const AUTH_STATUS_CACHE_MS = 5_000;
@@ -86,7 +88,7 @@ export function fetchAuthStatus(): Promise<AuthStatus | null> {
 export async function login(
   username: string,
   password: string,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; onboarding_completed?: boolean; error?: string }> {
   try {
     const res = await apiFetch(apiUrl("/api/auth/login"), {
       method: "POST",
@@ -97,12 +99,15 @@ export async function login(
       skipAuthRedirect: true,
     });
 
+    const data = await res.json().catch(() => ({}));
     if (res.ok) {
       invalidateAuthStatusCache();
-      return { ok: true };
+      return {
+        ok: true,
+        onboarding_completed: data.onboarding_completed !== false,
+      };
     }
 
-    const data = await res.json().catch(() => ({}));
     return { ok: false, error: extractDetail(data.detail) ?? "Login failed" };
   } catch {
     return { ok: false, error: "Could not reach the server" };
@@ -134,6 +139,7 @@ export async function register(
   ok: boolean;
   role?: string;
   is_first_user?: boolean;
+  onboarding_completed?: boolean;
   error?: string;
 }> {
   try {
@@ -149,7 +155,12 @@ export async function register(
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
       invalidateAuthStatusCache();
-      return { ok: true, role: data.role, is_first_user: data.is_first_user };
+      return {
+        ok: true,
+        role: data.role,
+        is_first_user: data.is_first_user,
+        onboarding_completed: data.onboarding_completed !== false,
+      };
     }
     return { ok: false, error: extractDetail(data.detail) };
   } catch {

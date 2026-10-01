@@ -44,7 +44,9 @@ export default function RegisterPage() {
     const result = await register(username, password);
 
     if (result.ok) {
-      router.replace("/login?registered=1");
+      router.replace(
+        result.onboarding_completed === false ? "/onboarding" : "/",
+      );
     } else {
       setError(result.error ?? t("Registration failed"));
       setLoading(false);

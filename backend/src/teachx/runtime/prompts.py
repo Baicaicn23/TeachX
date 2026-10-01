@@ -34,6 +34,7 @@ _CAPABILITY_RULES = {
 _PROFILE_LABELS = {
     "age": "年龄",
     "grade_level": "年级",
+    "learning_goal": "学习目标",
     "curriculum": "课程体系",
     "language": "偏好语言",
     "reading_level": "阅读水平",

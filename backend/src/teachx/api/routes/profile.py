@@ -26,6 +26,7 @@ class ProfileUpdate(BaseModel):
 class LearnerProfileUpdate(BaseModel):
     age: int | None = Field(default=None, ge=3, le=120)
     grade_level: str | None = Field(default=None, max_length=64)
+    learning_goal: str | None = Field(default=None, max_length=160)
     curriculum: str | None = Field(default=None, max_length=64)
     language: str | None = Field(default=None, max_length=32)
     reading_level: str | None = Field(default=None, max_length=64)

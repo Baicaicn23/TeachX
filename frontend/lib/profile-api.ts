@@ -10,6 +10,7 @@ export interface PersonalizationStatus {
 export interface LearnerProfile {
   age?: number;
   grade_level?: string;
+  learning_goal?: string;
   curriculum?: string;
   language?: string;
   reading_level?: string;

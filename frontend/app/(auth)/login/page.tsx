@@ -35,7 +35,9 @@ function LoginPageContent() {
     // If already authenticated, skip login
     fetchAuthStatus().then((status) => {
       if (status?.authenticated) {
-        router.replace(resolvedNext());
+        router.replace(
+          status.onboarding_completed === false ? "/onboarding" : resolvedNext(),
+        );
         return;
       }
       // No users registered yet — send straight to the registration page
@@ -53,7 +55,9 @@ function LoginPageContent() {
     const result = await login(username, password);
 
     if (result.ok) {
-      router.replace(resolvedNext());
+      router.replace(
+        result.onboarding_completed === false ? "/onboarding" : resolvedNext(),
+      );
     } else {
       setError(result.error ?? t("Login failed"));
       setLoading(false);

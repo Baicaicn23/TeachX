@@ -486,6 +486,7 @@ export default function ProfilePage() {
                   [
                     ["age", "Age"],
                     ["grade_level", "Grade level"],
+                    ["learning_goal", "Learning goal"],
                     ["curriculum", "Curriculum"],
                     ["language", "Preferred language"],
                     ["reading_level", "Reading level"],

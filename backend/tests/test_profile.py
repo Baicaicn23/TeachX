@@ -52,12 +52,14 @@ def test_profile_avatar_and_learner_profile(tmp_path: Path) -> None:
                 json={
                     "age": 19,
                     "grade_level": "大一",
+                    "learning_goal": "掌握线性代数",
                     "language": "zh",
                     "explanation_style": "先例子后原理",
                 },
             )
             assert learner.status_code == 200
             assert learner.json()["learner_profile"]["age"] == 19
+            assert learner.json()["learner_profile"]["learning_goal"] == "掌握线性代数"
             assert (
                 client.get("/api/auth/profile/learner-profile").json()["learner_profile"][
                     "grade_level"

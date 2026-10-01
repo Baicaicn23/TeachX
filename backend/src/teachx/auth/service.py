@@ -75,9 +75,10 @@ class AuthService:
             await connection.execute(
                 """
                 INSERT INTO users (
-                    id, username, password_hash, role, created_at, updated_at
+                    id, username, password_hash, role, onboarding_completed,
+                    created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, 0, ?, ?)
                 """,
                 (user_id, username, password_hash, role, now, now),
             )
@@ -89,6 +90,7 @@ class AuthService:
                 username=username,
                 role=role,
                 created_at=now,
+                onboarding_completed=False,
             ),
             first_user,
         )
@@ -196,6 +198,15 @@ class AuthService:
             await connection.commit()
         return await self.get_user(user_id)
 
+    async def complete_onboarding(self, user_id: str) -> UserRecord | None:
+        async with self.database.connect() as connection:
+            await connection.execute(
+                "UPDATE users SET onboarding_completed = 1, updated_at = ? WHERE id = ?",
+                (time.time(), user_id),
+            )
+            await connection.commit()
+        return await self.get_user(user_id)
+
     @staticmethod
     def _hash_password(password: str) -> str:
         return bcrypt.hashpw(
@@ -236,4 +247,5 @@ class AuthService:
                 json.loads(row["learner_profile"]) if row["learner_profile"] else None
             ),
             personalization_enabled=bool(row["personalization_enabled"]),
+            onboarding_completed=bool(row["onboarding_completed"]),
         )
