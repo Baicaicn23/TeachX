@@ -140,6 +140,12 @@ Again / Hard / Good / Easy 固定间隔，后续可以在不改变用户、知�
 其他个性化字段。目标文字发生变化时，更新服务自动把目标恢复为 active，避免新目标
 继承旧目标的完成状态。
 
+用户级模型连接保存在 `model_connections` 中。每项连接包含 Base URL、默认模型和
+Fernet 加密后的 API Key；HTTP 接口只返回是否存在凭据。WebSocket 在每回合开始时读取
+当前用户激活的连接，创建 `OpenAICompatibleProvider` 并传入 AgentRuntime；没有个人
+连接时回退到环境和 `.env` 配置的平台默认 Provider。Agent Loop、工具协议和会话存储
+不感知供应商差异。
+
 ## 设计规则
 
 - WebSocket 协议是前端与后端之间的稳定产品接缝。

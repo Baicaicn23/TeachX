@@ -11,10 +11,10 @@
 - P1：流式 Agent Runtime，核心已完成。
 - P2：知识库、FTS5、向量检索和引用，已完成。
 - P3：认证、用户隔离、个人资料和学习档案，已完成基础阶段。
-- 当前方向：普通用户核心学习闭环已完成，进入真实 Provider 联调与稳定性验证。
+- 当前方向：普通用户核心学习闭环和用户级模型连接已完成，进入 Agent 稳定性验证。
 - 暂缓：管理员功能、Docker、PostgreSQL。
-- 当前测试：28 个后端测试通过。
-- 当前 Git 基线：`a5e12d9`。
+- 当前测试：30 个后端测试通过。
+- 当前 Git 基线：`17c516c`。
 
 ## 开发总览
 
@@ -687,24 +687,74 @@ flowchart LR
 
 **提交：** `a5e12d9`
 
-## 下一阶段：真实 Provider 联调
+### M15：用户模型连接与多平台
 
-普通用户 U1～U6 的核心学习闭环已经完成。下一步进入 Q1：
+**用户场景**
 
-- 使用真实 API Key 测试 OpenAI 兼容 Chat Completions。
-- 验证流式文本、工具调用和分片参数。
-- 验证真实 Embedding 与混合检索。
-- 增加供应商超时、错误映射和断线场景。
-- 在拿到真实 Key 前，继续补确定性的契约与稳定性测试，不伪造线上验证结果。
+用户可以在 TeachX 平台默认模型和自己连接的 DeepSeek、OpenAI 或其他 OpenAI 兼容模型
+之间切换。
+
+**实现内容**
+
+- 新增 `model_connections` 表。
+- API Key 使用基于 `TEACHX_AUTH_SECRET` 的 Fernet 加密存储。
+- 接口只返回 `has_api_key`，不返回明文或密文。
+- 支持 DeepSeek、OpenAI 和自定义平台预设。
+- 支持调用标准 `/models` 测试连接和读取模型列表。
+- 支持保存、编辑、删除、激活个人连接和切回平台默认。
+- WebSocket 每回合按当前用户创建对应 OpenAI 兼容 Provider。
+- 添加 `/model-connections` 页面和侧边栏入口。
+- 自动测试强制使用 Mock，避免本地真实 Key 消耗额度。
+
+**真实验证**
+
+```text
+DeepSeek /models
+→ deepseek-flash
+→ deepseek-v4-pro
+
+流式文本
+→ 6 个内容片段
+→ finish_reason = stop
+
+工具调用
+→ calculator
+→ {"expression": "19 * 23"}
+
+浏览器
+→ 保存并激活个人 DeepSeek Flash 连接
+→ 真实聊天返回“真实模型连接成功”
+→ Mock 固定回答不再出现
+```
+
+**教程**
+
+- [17：用户模型连接与多平台](tutorials/17-用户模型连接与多平台.md)
+
+**提交**
+
+- `17c516c`
+
+## 下一阶段：Agent 稳定性
+
+普通用户 U1～U6 和用户级模型连接已经完成。下一步进入 Q2：
+
+- 工具调用重试和幂等保护。
+- 上下文长度预算。
+- 多工具执行策略。
+- 敏感工具参数脱敏。
+- 最大回合数、超时和断线恢复的用户提示。
 
 ## 工程质量路线
 
 ### Q1：Provider 真实联调
 
-- 使用真实 API Key 测试 OpenAI 兼容接口。
-- 验证流式文本、工具调用和 Embedding。
-- 增加供应商超时和错误映射。
-- 增加断线恢复测试。
+- [x] 使用真实 API Key 测试 OpenAI 兼容接口。
+- [x] 验证真实 DeepSeek Flash 流式文本。
+- [x] 验证真实 DeepSeek Flash 工具调用。
+- [ ] 验证真实 Embedding 与混合检索。
+- [ ] 增加更完整的供应商超时和错误映射。
+- [ ] 增加断线恢复测试。
 
 ### Q2：Agent 稳定性
 

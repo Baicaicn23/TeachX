@@ -63,13 +63,15 @@ CI：GitHub Actions，后端检查和前端构建
 - U5 练习与复习模式完成。
 - U6 对话中的学习目标完成。
 - 普通用户核心学习闭环 U1～U6 已完成。
-- 当前下一步是 Q1：真实 Provider 联调。
-- 后端测试 `28 passed`。
+- 用户级模型连接和 DeepSeek Flash 真实聊天已完成。
+- 当前下一步是 Q2：Agent 稳定性。
+- 后端测试 `30 passed`。
 - Git 工作区应保持干净。
 
 最近功能提交：
 
 ```text
+17c516c feat: add user model connections
 a5e12d9 feat: track learning goals in chat
 f682cc1 feat: add knowledge-base practice and review
 2c1f302 feat: add learning feedback and mistake records
@@ -179,9 +181,9 @@ npm run build
 当前预期：
 
 ```text
-28 passed
+30 passed
 typecheck passed
-46 Next.js routes built
+47 Next.js routes built
 ```
 
 ## 核心运行链路
@@ -235,6 +237,7 @@ Next.js Chat UI
 | `backend/src/teachx/knowledge/embeddings.py` | Mock/OpenAI Embedding |
 | `backend/src/teachx/auth/service.py` | 用户、密码、JWT、学习档案 |
 | `backend/src/teachx/practice/service.py` | 知识库出题、复习调度和掌握度 |
+| `backend/src/teachx/model_connections/service.py` | 用户模型连接、Key 加密和 Provider 切换 |
 | `backend/src/teachx/api/routes/ws.py` | WebSocket 回合协议 |
 | `backend/src/teachx/api/routes/profile.py` | 用户资料、头像和学习档案 API |
 
@@ -255,6 +258,8 @@ Next.js Chat UI
 | `frontend/app/(workspace)/practice/page.tsx` | 练习队列、自评、复习和掌握度页面 |
 | `frontend/lib/practice-review-api.ts` | 练习与复习 API 客户端 |
 | `frontend/components/chat/home/LearningGoalStatus.tsx` | 当前学习目标、进度、完成和调整状态条 |
+| `frontend/app/(utility)/model-connections/page.tsx` | DeepSeek、OpenAI 和兼容平台连接管理 |
+| `frontend/lib/model-connections-api.ts` | 模型连接 API 客户端 |
 | `frontend/features/chat/ChatStateAdapter.tsx` | WebSocket 状态机和消息展示 |
 
 ## 当前用户可用功能
@@ -270,6 +275,8 @@ Next.js Chat UI
 - 按知识库查看练习掌握度。
 - 聊天页查看当前学习目标、进度和完成状态。
 - 修改学习目标后自动重新激活，已完成目标不再注入提示词。
+- 保存、测试和激活个人 DeepSeek、OpenAI 或自定义 OpenAI 兼容模型连接。
+- 用户 API Key 加密存储，客户端接口不返回明文或密文。
 - 个性化开关。
 - 聊天页个性化状态条。
 - 流式聊天。
@@ -310,6 +317,17 @@ GET    /api/practice/queue
 POST   /api/practice/generate
 POST   /api/practice/questions/{question_id}/answer
 DELETE /api/practice/questions/{question_id}
+```
+
+### 模型连接
+
+```text
+GET    /api/model-connections
+POST   /api/model-connections
+POST   /api/model-connections/test
+POST   /api/model-connections/default/activate
+POST   /api/model-connections/{connection_id}/activate
+DELETE /api/model-connections/{connection_id}
 ```
 
 ### 个人资料
@@ -375,6 +393,7 @@ answer_feedback.user_id
 practice_questions
 practice_attempts
 practice_progress
+model_connections
 ```
 
 会话所有权：
@@ -396,7 +415,7 @@ knowledge_bases.owner_id
 - `docs/roadmap.md`
 - `docs/tutorials/README.md`
 
-当前焦点是 Q1：真实 Provider 联调。
+当前焦点是 Q2：Agent 稳定性。
 
 ### U3 完成情况
 
@@ -457,10 +476,23 @@ knowledge_bases.owner_id
 
 提交：`a5e12d9`
 
-### Q1 下一步
+### Q1 完成情况
 
 使用真实 API Key 验证 OpenAI 兼容流式文本、工具调用和 Embedding。没有真实 Key 时，
 继续补确定性的契约、超时和错误映射测试，不声称完成线上联调。
+
+- 已使用 DeepSeek Flash 验证 `/models`、流式文本和 calculator 工具调用。
+- 已实现用户级模型连接、加密凭据和浏览器真实聊天。
+- Embedding 真实联调、完整超时和错误映射仍待补强。
+
+教程：[17：用户模型连接与多平台](tutorials/17-用户模型连接与多平台.md)
+
+提交：`17c516c`
+
+### Q2 下一步
+
+提高 Agent Loop 在真实供应商下的稳定性：工具重试、上下文预算、敏感参数脱敏、最大
+回合提示和断线恢复。
 
 ## 当前已知限制
 
@@ -530,5 +562,5 @@ git push
 2. 阅读 `docs/roadmap.md`。
 3. 执行 `git status` 和 `git log -5`。
 4. 执行 `./scripts/check.sh`。
-5. 从 Q1 开始，不要重做已验证功能。
+5. 从 Q2 开始，不要重做已验证功能。
 6. 先在浏览器验证现状，再开始修改。
