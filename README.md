@@ -38,6 +38,7 @@ P0、P1、P2 已完成，P3 正在进行。当前已加入认证、会话与知�
 | 知识库 | 支持 TXT、Markdown、PDF 上传，FTS5、向量和 RRF 混合检索 |
 | 登录认证 | bcrypt、JWT HttpOnly Cookie、WebSocket 鉴权、会话按用户隔离 |
 | 资源授权 | 知识库按 owner_id 隔离，管理员可查看全部资源 |
+| 个人档案 | 头像标记、图片头像、学习目标与讲解偏好 |
 | 容器部署 | 暂缓，不作为当前开发阻塞；配置文件保留备用 |
 | 持续集成 | 后端检查与前端生产构建 |
 
@@ -182,6 +183,9 @@ NEXT_PUBLIC_AUTH_ENABLED=true
 - 会话按用户隔离
 - 知识库所有权隔离与管理员全局访问
 - Agent 检索工具继承当前用户权限
+- 普通用户个人主页
+- 图标与图片头像管理
+- 年龄、年级、课程体系、语言、阅读水平和讲解风格
 - 后端和前端生产 Dockerfile
 - GitHub Actions 后端检查和前端生产构建
 - Docker 配置文件保留备用，当前暂停验证
@@ -247,6 +251,7 @@ npm run build
 - [07：多用户数据隔离](docs/tutorials/07-多用户数据隔离.md)
 - [08：Docker 部署](docs/tutorials/08-Docker部署.md)
 - [09：CI 持续集成](docs/tutorials/09-CI持续集成.md)
+- [10：个人资料与学习档案](docs/tutorials/10-个人资料与学习档案.md)
 
 ## 开发路线
 

@@ -26,7 +26,8 @@
 | [06](06-认证与权限.md) | bcrypt、JWT、Cookie、WebSocket 鉴权和会话隔离 | `auth/`、`api/auth_dependencies.py` |
 | [07](07-多用户数据隔离.md) | owner_id、知识库权限、管理员边界和 Agent 工具授权 | `knowledge/service.py`、`runtime/tools.py` |
 | [08](08-Docker部署.md) | Image、Container、Volume、Compose 和健康检查 | `Dockerfile`、`compose.yaml` |
-| [09](09-CI持续集成.md) | GitHub Actions、测试、构建、缓存和 Docker Smoke Test | `.github/workflows/ci.yml` |
+| [09](09-CI持续集成.md) | GitHub Actions、测试和构建 | `.github/workflows/ci.yml` |
+| [10](10-个人资料与学习档案.md) | 头像、资料校验、学习偏好和用户隐私 | `auth/service.py`、`api/routes/profile.py` |
 
 ## 学习方法
 
