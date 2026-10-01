@@ -85,6 +85,18 @@ WebSocket 都必须在后端验证 Cookie，不能依赖前端路由隐藏。
 数据，管理员可以访问全部资源。HTTP 路由、文件下载和 Agent 工具调用必须使用
 相同的所有权规则。
 
+## 容器部署
+
+```text
+Browser
+→ web 容器（Next.js standalone）
+→ api 容器（FastAPI）
+→ teachx-data Volume
+```
+
+Compose 通过服务名 `api` 提供容器网络发现。SQLite 数据库和知识库原文保存在
+`/app/data`，通过命名 Volume 持久化。
+
 ## 设计规则
 
 - WebSocket 协议是前端与后端之间的稳定产品接缝。

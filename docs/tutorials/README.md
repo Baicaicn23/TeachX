@@ -25,6 +25,7 @@
 | [05](05-向量检索与混合排序.md) | Embedding、余弦相似度、RRF 和重建立索引 | `knowledge/embeddings.py`、`knowledge/service.py` |
 | [06](06-认证与权限.md) | bcrypt、JWT、Cookie、WebSocket 鉴权和会话隔离 | `auth/`、`api/auth_dependencies.py` |
 | [07](07-多用户数据隔离.md) | owner_id、知识库权限、管理员边界和 Agent 工具授权 | `knowledge/service.py`、`runtime/tools.py` |
+| [08](08-Docker部署.md) | Image、Container、Volume、Compose 和健康检查 | `Dockerfile`、`compose.yaml` |
 
 ## 学习方法
 

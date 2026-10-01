@@ -22,7 +22,7 @@ Web 项目。它保留了 AI 学习产品真正有价值的核心：流式 Agent
 
 ## 当前状态
 
-P0、P1、P2 已完成，P3 正在进行。当前已加入用户注册登录、JWT HttpOnly Cookie、WebSocket 鉴权、会话隔离和知识库所有权隔离；PostgreSQL、Docker 和管理员用户管理尚未完成。
+P0、P1、P2 已完成，P3 正在进行。当前已加入认证、会话与知识库隔离，并提供 Docker/Compose 部署配置；镜像实机构建和 PostgreSQL 迁移仍待完成。
 
 | 模块 | 状态 |
 | --- | --- |
@@ -37,6 +37,7 @@ P0、P1、P2 已完成，P3 正在进行。当前已加入用户注册登录、J
 | 知识库 | 支持 TXT、Markdown、PDF 上传，FTS5、向量和 RRF 混合检索 |
 | 登录认证 | bcrypt、JWT HttpOnly Cookie、WebSocket 鉴权、会话按用户隔离 |
 | 资源授权 | 知识库按 owner_id 隔离，管理员可查看全部资源 |
+| 容器部署 | Dockerfile、Compose、Volume 和健康检查已配置，待具备 Docker 的环境实机验证 |
 
 P1 的核心开发已经完成：`complete` 与 `stream` 双接口、真实 token 流式输出、
 工具参数分片拼接、能力模式提示词、会话标题生成和更完整的工具事件都已加入。
@@ -89,7 +90,19 @@ Next.js UI
 
 默认使用 Mock 模型，不需要 API Key。
 
-### 1. 启动后端
+### 方式一：Docker Compose
+
+```bash
+cp .env.docker.example .env
+docker compose up --build -d
+```
+
+访问 [http://localhost:3000](http://localhost:3000)。详细说明见
+[Docker 部署教程](docs/tutorials/08-Docker部署.md)。
+
+### 方式二：本地开发
+
+#### 1. 启动后端
 
 ```bash
 cd backend
@@ -97,7 +110,7 @@ uv sync
 uv run uvicorn teachx.main:app --app-dir src --reload --port 8010
 ```
 
-### 2. 启动前端
+#### 2. 启动前端
 
 打开第二个终端：
 
@@ -177,6 +190,8 @@ NEXT_PUBLIC_AUTH_ENABLED=true
 - 会话按用户隔离
 - 知识库所有权隔离与管理员全局访问
 - Agent 检索工具继承当前用户权限
+- 后端和前端生产 Dockerfile
+- Docker Compose、持久化 Volume、健康检查和启动依赖
 - 原 DeepTutor 可选界面的兼容接口
 
 ## 项目结构
@@ -193,6 +208,7 @@ TeachX/
 │   │   └── storage/         SQLite 持久化
 │   └── tests/
 ├── frontend/                基于 Apache-2.0 复用的 Next.js 界面
+├── compose.yaml             前后端一体化容器编排
 ├── docs/
 │   ├── architecture.md
 │   ├── readme-guide.md      README 编写与维护规范
@@ -236,6 +252,7 @@ npm run build
 - [05：向量检索与混合排序](docs/tutorials/05-向量检索与混合排序.md)
 - [06：认证与权限](docs/tutorials/06-认证与权限.md)
 - [07：多用户数据隔离](docs/tutorials/07-多用户数据隔离.md)
+- [08：Docker 部署](docs/tutorials/08-Docker部署.md)
 
 ## 开发路线
 
@@ -244,7 +261,7 @@ npm run build
 | P0 | 可运行的 Web 与后端垂直切片 | 已完成 |
 | P1 | 真实流式模型、工具轨迹、能力提示词 | 核心已完成，待真实 API 联调 |
 | P2 | 知识库上传、检索与引用 | 已完成 |
-| P3 | 登录认证、PostgreSQL、部署 | 进行中，认证与资源隔离已完成 |
+| P3 | 登录认证、PostgreSQL、部署 | 进行中，认证、资源隔离和容器配置已完成 |
 | P4 | CI、截图、在线演示与简历文档 | 计划中 |
 
 真实供应商联调仍需配置 API Key，测试代码已经覆盖流式文本和分片工具参数。
