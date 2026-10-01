@@ -128,6 +128,12 @@ GitHub Actions 使用干净的 Ubuntu Runner，避免依赖开发者本机状态
 聊天正文；更新使用用户和消息唯一约束，删除聊天时通过外键级联清理。学习记录页只
 查询当前用户的数据，后续追问通过 workspace draft 回填聊天输入框，由用户确认后发送。
 
+练习与复习由独立的 `PracticeService` 负责。`practice_questions` 保存从知识库文本
+片段生成的开放题，`practice_attempts` 保存每次回答、自评、复习间隔和掌握度快照，
+`practice_progress` 汇总用户在每个知识库上的掌握度。调度当前使用可解释的
+Again / Hard / Good / Easy 固定间隔，后续可以在不改变用户、知识库和题目权限边界
+的前提下替换为更复杂的复习算法。
+
 ## 设计规则
 
 - WebSocket 协议是前端与后端之间的稳定产品接缝。

@@ -60,13 +60,15 @@ CI：GitHub Actions，后端检查和前端构建
 - U2 聊天页个性化状态完成。
 - U3 首次使用引导完成。
 - U4 学习反馈与错题记录完成。
-- 当前下一步是 U5：练习与复习模式。
-- 后端测试 `26 passed`。
+- U5 练习与复习模式完成。
+- 当前下一步是 U6：对话中的学习目标。
+- 后端测试 `28 passed`。
 - Git 工作区应保持干净。
 
 最近功能提交：
 
 ```text
+f682cc1 feat: add knowledge-base practice and review
 2c1f302 feat: add learning feedback and mistake records
 abed83c feat: add first-run onboarding
 560cee9 docs: add chat personalization status tutorial
@@ -174,9 +176,9 @@ npm run build
 当前预期：
 
 ```text
-26 passed
+28 passed
 typecheck passed
-45 Next.js routes built
+46 Next.js routes built
 ```
 
 ## 核心运行链路
@@ -229,6 +231,7 @@ Next.js Chat UI
 | `backend/src/teachx/knowledge/service.py` | 知识库权限、存储和混合检索 |
 | `backend/src/teachx/knowledge/embeddings.py` | Mock/OpenAI Embedding |
 | `backend/src/teachx/auth/service.py` | 用户、密码、JWT、学习档案 |
+| `backend/src/teachx/practice/service.py` | 知识库出题、复习调度和掌握度 |
 | `backend/src/teachx/api/routes/ws.py` | WebSocket 回合协议 |
 | `backend/src/teachx/api/routes/profile.py` | 用户资料、头像和学习档案 API |
 
@@ -246,6 +249,8 @@ Next.js Chat UI
 | `frontend/features/chat/messages/AnswerFeedbackActions.tsx` | 有帮助、不清楚和误区反馈操作 |
 | `frontend/app/(utility)/learning-records/page.tsx` | 学习记录筛选、回看、继续追问和删除 |
 | `frontend/lib/answer-feedback-api.ts` | 回答反馈 API 客户端 |
+| `frontend/app/(workspace)/practice/page.tsx` | 练习队列、自评、复习和掌握度页面 |
+| `frontend/lib/practice-review-api.ts` | 练习与复习 API 客户端 |
 | `frontend/features/chat/ChatStateAdapter.tsx` | WebSocket 状态机和消息展示 |
 
 ## 当前用户可用功能
@@ -257,6 +262,8 @@ Next.js Chat UI
 - 学习档案。
 - 首次使用引导，可跳过并上传可选资料。
 - 回答反馈和学习误区记录，可筛选、回看、继续追问和删除。
+- 从知识库生成开放题，保存作答并安排复习。
+- 按知识库查看练习掌握度。
 - 个性化开关。
 - 聊天页个性化状态条。
 - 流式聊天。
@@ -286,6 +293,17 @@ GET    /api/learning/feedback?session_id={session_id}
 GET    /api/learning/records
 PUT    /api/learning/feedback/{message_id}
 DELETE /api/learning/records/{feedback_id}
+```
+
+### 练习与复习
+
+```text
+GET    /api/practice/summary
+GET    /api/practice/knowledge-bases
+GET    /api/practice/queue
+POST   /api/practice/generate
+POST   /api/practice/questions/{question_id}/answer
+DELETE /api/practice/questions/{question_id}
 ```
 
 ### 个人资料
@@ -346,6 +364,9 @@ users.learner_profile
 users.personalization_enabled
 users.onboarding_completed
 answer_feedback.user_id
+practice_questions
+practice_attempts
+practice_progress
 ```
 
 会话所有权：
@@ -367,7 +388,7 @@ knowledge_bases.owner_id
 - `docs/roadmap.md`
 - `docs/tutorials/README.md`
 
-当前焦点是 U5：练习与复习模式。
+当前焦点是 U6：对话中的学习目标。
 
 ### U3 完成情况
 
@@ -398,9 +419,24 @@ knowledge_bases.owner_id
 
 提交：`2c1f302`
 
-### U5 下一步
+### U5 完成情况
 
 根据知识库生成练习题，保存答案和判定结果，并形成复习计划与掌握度变化。
+
+- 已从知识库片段生成开放式回忆题。
+- 新题和到期题进入统一练习队列。
+- Again、Hard、Good、Easy 会更新掌握度并安排 1、2、4、7 天复习。
+- 用户和知识库数据隔离。
+- 浏览器验证了上传、生成、作答、8% 掌握度和下次复习日期。
+- 教程、README、roadmap 和提交已同步。
+
+教程：[15：练习与复习模式](tutorials/15-练习与复习模式.md)
+
+提交：`f682cc1`
+
+### U6 下一步
+
+把学习目标从档案字段扩展为对话中的持续推进：显示进度、每轮提示当前目标，并支持完成或调整目标。
 
 ## 当前已知限制
 
@@ -470,5 +506,5 @@ git push
 2. 阅读 `docs/roadmap.md`。
 3. 执行 `git status` 和 `git log -5`。
 4. 执行 `./scripts/check.sh`。
-5. 从 U5 开始，不要重做已验证功能。
+5. 从 U6 开始，不要重做已验证功能。
 6. 先在浏览器验证现状，再开始修改。
