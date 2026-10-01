@@ -30,6 +30,7 @@
 | [10](10-个人资料与学习档案.md) | 头像、资料校验、学习偏好和用户隐私 | `auth/service.py`、`api/routes/profile.py` |
 | [11](11-个性化提示词.md) | 学习档案注入、开启关闭、注入防护和提示词测试 | `runtime/prompts.py`、`runtime/engine.py` |
 | [12](12-聊天页个性化状态.md) | 个性化状态条、快速开关、下一回合生效和独立组件设计 | `PersonalizationStatus.tsx`、`profile-api.ts` |
+| [13](13-首次使用引导.md) | 首次引导、跳过状态、学习目标、可选资料和旧用户迁移 | `onboarding/page.tsx`、`onboarding-api.ts` |
 
 ## 项目路线图
 

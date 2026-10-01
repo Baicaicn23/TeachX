@@ -58,13 +58,15 @@ CI：GitHub Actions，后端检查和前端构建
 - P3 认证、用户隔离和个人资料完成基础阶段。
 - U1 学习档案注入提示词完成。
 - U2 聊天页个性化状态完成。
-- U3 首次使用引导是当前下一步。
-- 后端测试 `22 passed`。
+- U3 首次使用引导完成。
+- 当前下一步是 U4：学习反馈与错题记录。
+- 后端测试 `24 passed`。
 - Git 工作区应保持干净。
 
 最近功能提交：
 
 ```text
+abed83c feat: add first-run onboarding
 560cee9 docs: add chat personalization status tutorial
 f51bf41 feat: show personalization status in chat
 c9a109a docs: add personalization prompt tutorial
@@ -170,9 +172,9 @@ npm run build
 当前预期：
 
 ```text
-22 passed
+24 passed
 typecheck passed
-43 Next.js routes built
+44 Next.js routes built
 ```
 
 ## 核心运行链路
@@ -236,6 +238,9 @@ Next.js Chat UI
 | `frontend/components/chat/home/ChatComposer.tsx` | 聊天输入框 |
 | `frontend/components/chat/home/PersonalizationStatus.tsx` | 聊天页个性化状态条 |
 | `frontend/app/(utility)/profile/page.tsx` | 个人主页、头像和学习档案 |
+| `frontend/app/(auth)/onboarding/page.tsx` | 三步首次使用引导 |
+| `frontend/components/auth/OnboardingGate.tsx` | 未完成引导用户的工作区门禁 |
+| `frontend/lib/onboarding-api.ts` | 引导状态、完成状态和首份资料上传 |
 | `frontend/features/chat/ChatStateAdapter.tsx` | WebSocket 状态机和消息展示 |
 
 ## 当前用户可用功能
@@ -245,6 +250,7 @@ Next.js Chat UI
 - 知识库所有权隔离。
 - 图标头像和图片头像。
 - 学习档案。
+- 首次使用引导，可跳过并上传可选资料。
 - 个性化开关。
 - 聊天页个性化状态条。
 - 流式聊天。
@@ -263,6 +269,8 @@ GET    /api/auth/is_first_user
 POST   /api/auth/register
 POST   /api/auth/login
 POST   /api/auth/logout
+GET    /api/auth/onboarding
+POST   /api/auth/onboarding/complete
 ```
 
 ### 个人资料
@@ -320,6 +328,7 @@ knowledge_chunk_vectors
 users.avatar
 users.learner_profile
 users.personalization_enabled
+users.onboarding_completed
 ```
 
 会话所有权：
@@ -341,34 +350,26 @@ knowledge_bases.owner_id
 - `docs/roadmap.md`
 - `docs/tutorials/README.md`
 
-当前焦点是 U3：首次使用引导。
+当前焦点是 U4：学习反馈与错题记录。
 
-### U3 目标
+### U3 完成情况
 
 新用户注册后，在 3 分钟内完成基础学习档案。
 
-### U3 建议实现
+- 注册后自动登录并进入 `/onboarding`。
+- 学习阶段、目标、讲解偏好和可选资料已完成。
+- 新用户可跳过，旧用户迁移后默认已完成。
+- 完成状态持久化，工作区门禁生效。
+- 桌面和移动端浏览器路径已验证。
+- 中文教程、README、roadmap 和提交已同步。
 
-1. 注册成功后进入 onboarding 页面或弹层。
-2. 选择学习阶段。
-3. 选择主要学习目标。
-4. 选择讲解偏好。
-5. 可选上传第一份资料。
-6. 允许“稍后设置”并跳过。
-7. 保存后进入聊天页。
-8. 写测试和教程。
-9. 更新 README 和 roadmap。
+教程：[13：首次使用引导](tutorials/13-首次使用引导.md)
 
-### U3 验收标准
+提交：`abed83c`
 
-- 新用户不填写任何内容也能跳过。
-- 填写后数据写入现有学习档案接口。
-- 完成后聊天页状态条立即显示摘要。
-- 刷新后不回退到 onboarding。
-- 旧用户不应被强制再次引导。
-- 浏览器实际验证。
-- 后端和前端测试通过。
-- 教程、README、roadmap 和 Git 提交同步。
+### U4 下一步
+
+让用户可以标记回答是否有帮助，并把错题和概念误区保存为后续可引用的学习记录。
 
 ## 当前已知限制
 
@@ -438,5 +439,5 @@ git push
 2. 阅读 `docs/roadmap.md`。
 3. 执行 `git status` 和 `git log -5`。
 4. 执行 `./scripts/check.sh`。
-5. 从 U3 开始，不要重做已验证功能。
+5. 从 U4 开始，不要重做已验证功能。
 6. 先在浏览器验证现状，再开始修改。
