@@ -134,6 +134,12 @@ GitHub Actions 使用干净的 Ubuntu Runner，避免依赖开发者本机状态
 Again / Hard / Good / Easy 固定间隔，后续可以在不改变用户、知识库和题目权限边界
 的前提下替换为更复杂的复习算法。
 
+学习目标继续保存在 `users.learner_profile` 中，额外使用 `learning_goal_progress`
+和 `learning_goal_status` 表示进度与 active/completed 状态。AgentRuntime 每回合
+读取最新档案：未完成目标会连同进度进入个性化提示词；已完成目标不再注入，但不会关闭
+其他个性化字段。目标文字发生变化时，更新服务自动把目标恢复为 active，避免新目标
+继承旧目标的完成状态。
+
 ## 设计规则
 
 - WebSocket 协议是前端与后端之间的稳定产品接缝。

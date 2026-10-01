@@ -33,6 +33,7 @@
 | [13](13-首次使用引导.md) | 首次引导、跳过状态、学习目标、可选资料和旧用户迁移 | `onboarding/page.tsx`、`onboarding-api.ts` |
 | [14](14-学习反馈与错题记录.md) | 回答反馈、误区记录、用户隔离、记录管理和聊天草稿回流 | `AnswerFeedbackActions.tsx`、`answer-feedback-api.ts` |
 | [15](15-练习与复习模式.md) | 知识库出题、自评、复习间隔、掌握度和练习队列 | `practice/service.py`、`practice-review-api.ts` |
+| [16](16-对话中的学习目标.md) | 目标进度、完成状态、提示词注入、重新激活和聊天状态条 | `LearningGoalStatus.tsx`、`runtime/prompts.py` |
 
 ## 项目路线图
 

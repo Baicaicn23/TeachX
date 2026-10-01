@@ -61,13 +61,16 @@ CI：GitHub Actions，后端检查和前端构建
 - U3 首次使用引导完成。
 - U4 学习反馈与错题记录完成。
 - U5 练习与复习模式完成。
-- 当前下一步是 U6：对话中的学习目标。
+- U6 对话中的学习目标完成。
+- 普通用户核心学习闭环 U1～U6 已完成。
+- 当前下一步是 Q1：真实 Provider 联调。
 - 后端测试 `28 passed`。
 - Git 工作区应保持干净。
 
 最近功能提交：
 
 ```text
+a5e12d9 feat: track learning goals in chat
 f682cc1 feat: add knowledge-base practice and review
 2c1f302 feat: add learning feedback and mistake records
 abed83c feat: add first-run onboarding
@@ -251,6 +254,7 @@ Next.js Chat UI
 | `frontend/lib/answer-feedback-api.ts` | 回答反馈 API 客户端 |
 | `frontend/app/(workspace)/practice/page.tsx` | 练习队列、自评、复习和掌握度页面 |
 | `frontend/lib/practice-review-api.ts` | 练习与复习 API 客户端 |
+| `frontend/components/chat/home/LearningGoalStatus.tsx` | 当前学习目标、进度、完成和调整状态条 |
 | `frontend/features/chat/ChatStateAdapter.tsx` | WebSocket 状态机和消息展示 |
 
 ## 当前用户可用功能
@@ -264,6 +268,8 @@ Next.js Chat UI
 - 回答反馈和学习误区记录，可筛选、回看、继续追问和删除。
 - 从知识库生成开放题，保存作答并安排复习。
 - 按知识库查看练习掌握度。
+- 聊天页查看当前学习目标、进度和完成状态。
+- 修改学习目标后自动重新激活，已完成目标不再注入提示词。
 - 个性化开关。
 - 聊天页个性化状态条。
 - 流式聊天。
@@ -363,6 +369,8 @@ users.avatar
 users.learner_profile
 users.personalization_enabled
 users.onboarding_completed
+users.learner_profile.learning_goal_progress
+users.learner_profile.learning_goal_status
 answer_feedback.user_id
 practice_questions
 practice_attempts
@@ -388,7 +396,7 @@ knowledge_bases.owner_id
 - `docs/roadmap.md`
 - `docs/tutorials/README.md`
 
-当前焦点是 U6：对话中的学习目标。
+当前焦点是 Q1：真实 Provider 联调。
 
 ### U3 完成情况
 
@@ -434,9 +442,25 @@ knowledge_bases.owner_id
 
 提交：`f682cc1`
 
-### U6 下一步
+### U6 完成情况
 
 把学习目标从档案字段扩展为对话中的持续推进：显示进度、每轮提示当前目标，并支持完成或调整目标。
+
+- 学习档案已保存目标进度和 active/completed 状态。
+- 聊天页显示当前目标、进度，并支持一键完成和转到个人主页调整。
+- 目标和进度进入系统提示词，已完成目标不再注入。
+- 修改目标文字会自动重新激活。
+- 浏览器验证完成、进度更新、重新激活和持久化。
+- 教程、README、roadmap 和提交已同步。
+
+教程：[16：对话中的学习目标](tutorials/16-对话中的学习目标.md)
+
+提交：`a5e12d9`
+
+### Q1 下一步
+
+使用真实 API Key 验证 OpenAI 兼容流式文本、工具调用和 Embedding。没有真实 Key 时，
+继续补确定性的契约、超时和错误映射测试，不声称完成线上联调。
 
 ## 当前已知限制
 
@@ -506,5 +530,5 @@ git push
 2. 阅读 `docs/roadmap.md`。
 3. 执行 `git status` 和 `git log -5`。
 4. 执行 `./scripts/check.sh`。
-5. 从 U6 开始，不要重做已验证功能。
+5. 从 Q1 开始，不要重做已验证功能。
 6. 先在浏览器验证现状，再开始修改。
