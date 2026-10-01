@@ -6,6 +6,7 @@ import uuid
 from collections.abc import AsyncIterator
 from typing import Any
 
+from teachx.auth.service import AuthService
 from teachx.providers.base import (
     BaseProvider,
     ContentDelta,
@@ -28,11 +29,13 @@ class AgentRuntime:
         provider: BaseProvider,
         tools: ToolRegistry,
         repository: SessionRepository,
+        auth: AuthService | None = None,
         max_rounds: int = 6,
     ) -> None:
         self.provider = provider
         self.tools = tools
         self.repository = repository
+        self.auth = auth
         self.max_rounds = max_rounds
 
     async def run_turn(
@@ -78,7 +81,18 @@ class AgentRuntime:
             "turn_id": turn_id,
         }
 
-        messages = self._build_messages(command, history, user_message)
+        learner_profile: dict[str, Any] | None = None
+        if user_id and self.auth is not None:
+            current_user = await self.auth.get_user(user_id)
+            if current_user and current_user.personalization_enabled:
+                learner_profile = current_user.learner_profile or {}
+        personalization_applied = bool(learner_profile)
+        messages = self._build_messages(
+            command,
+            history,
+            user_message,
+            learner_profile=learner_profile,
+        )
         enabled_tools = ["calculator"] if command.tools is None else list(command.tools)
         if command.knowledge_bases and "knowledge_search" not in enabled_tools:
             enabled_tools.append("knowledge_search")
@@ -308,6 +322,7 @@ class AgentRuntime:
                     "title": final_title,
                     "rounds_used": rounds_used,
                     "tool_call_count": tool_call_count,
+                    "personalization_applied": personalization_applied,
                 },
             }
         except Exception as exc:
@@ -342,10 +357,13 @@ class AgentRuntime:
         command: StartTurnCommand,
         history: list[SessionMessage],
         user_message: SessionMessage,
+        *,
+        learner_profile: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         system = build_system_prompt(
             command.capability or "chat",
             command.language or "zh",
+            learner_profile=learner_profile,
         )
         messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
         for message in history:

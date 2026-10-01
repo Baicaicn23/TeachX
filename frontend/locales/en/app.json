@@ -5271,5 +5271,6 @@
   "Review move": "Review move",
   "{{count}} files · {{bytes}} bytes": "{{count}} files · {{bytes}} bytes",
   "Assignments updated: {{names}}": "Assignments updated: {{names}}",
-  "Save learner profile": "Save learner profile"
+  "Save learner profile": "Save learner profile",
+  "Enable personalization": "Enable personalization"
 }

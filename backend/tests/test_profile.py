@@ -76,6 +76,14 @@ def test_profile_avatar_and_learner_profile(tmp_path: Path) -> None:
             assert image.status_code == 200
             assert image.content.startswith(b"\x89PNG")
 
+            disabled = client.put(
+                "/api/auth/profile",
+                json={"personalization_enabled": False},
+            )
+            assert disabled.status_code == 200
+            assert disabled.json()["personalization_enabled"] is False
+            assert client.get("/api/auth/profile").json()["personalization_enabled"] is False
+
             deleted = client.delete("/api/auth/profile/avatar")
             assert deleted.status_code == 200
             assert client.get(f"/api/auth/avatar/{user_id}").status_code == 404

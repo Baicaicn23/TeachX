@@ -49,6 +49,7 @@ async def lifespan(app: FastAPI):
         provider=provider,
         tools=tools,
         repository=repository,
+        auth=auth,
         max_rounds=settings.max_agent_rounds,
     )
     app.state.container = ApplicationContainer(

@@ -5271,5 +5271,6 @@
   "Review move": "检查移动详情",
   "{{count}} files · {{bytes}} bytes": "{{count}} 个文件 · {{bytes}} 字节",
   "Assignments updated: {{names}}": "将更新以下工作区的分配：{{names}}",
-  "Save learner profile": "保存学习档案"
+  "Save learner profile": "保存学习档案",
+  "Enable personalization": "启用个性化"
 }

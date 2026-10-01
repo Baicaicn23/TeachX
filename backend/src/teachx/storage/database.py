@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS users (
     role TEXT NOT NULL DEFAULT 'user',
     avatar TEXT NOT NULL DEFAULT '',
     learner_profile TEXT NOT NULL DEFAULT '{}',
+    personalization_enabled INTEGER NOT NULL DEFAULT 1,
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL,
     last_login_at REAL NULL
@@ -142,6 +143,12 @@ class Database:
                 table="users",
                 column="learner_profile",
                 definition="TEXT NOT NULL DEFAULT '{}'",
+            )
+            await self._ensure_column(
+                connection,
+                table="users",
+                column="personalization_enabled",
+                definition="INTEGER NOT NULL DEFAULT 1",
             )
             await connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_sessions_user_updated "

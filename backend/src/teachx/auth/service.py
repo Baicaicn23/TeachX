@@ -170,6 +170,19 @@ class AuthService:
             await connection.commit()
         return await self.get_user(user_id)
 
+    async def update_personalization(
+        self,
+        user_id: str,
+        enabled: bool,
+    ) -> UserRecord | None:
+        async with self.database.connect() as connection:
+            await connection.execute(
+                ("UPDATE users SET personalization_enabled = ?, updated_at = ? WHERE id = ?"),
+                (int(enabled), time.time(), user_id),
+            )
+            await connection.commit()
+        return await self.get_user(user_id)
+
     async def update_learner_profile(
         self,
         user_id: str,
@@ -222,4 +235,5 @@ class AuthService:
             learner_profile=(
                 json.loads(row["learner_profile"]) if row["learner_profile"] else None
             ),
+            personalization_enabled=bool(row["personalization_enabled"]),
         )

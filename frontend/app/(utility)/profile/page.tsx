@@ -12,6 +12,7 @@ import {
   getProfile,
   removeAvatarImage,
   setAvatarMarker,
+  setPersonalizationEnabled,
   setOwnLearnerProfile,
   uploadAvatarImage,
   type LearnerProfile,
@@ -105,6 +106,7 @@ export default function ProfilePage() {
   const [learnerProfile, setLearnerProfile] = useState<LearnerProfile>({});
   const [learnerSaving, setLearnerSaving] = useState(false);
   const [learnerSaved, setLearnerSaved] = useState(false);
+  const [personalizationBusy, setPersonalizationBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -219,6 +221,26 @@ export default function ProfilePage() {
       setLearnerSaving(false);
     }
   }, [learnerProfile]);
+
+  const handlePersonalizationToggle = useCallback(
+    async (enabled: boolean) => {
+      setPersonalizationBusy(true);
+      setError(null);
+      try {
+        const saved = await setPersonalizationEnabled(enabled);
+        setProfile((current) =>
+          current
+            ? { ...current, personalization_enabled: saved }
+            : current,
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setPersonalizationBusy(false);
+      }
+    },
+    [],
+  );
 
   const handleSignOut = useCallback(async () => {
     await logout();
@@ -439,11 +461,25 @@ export default function ProfilePage() {
                     {t("Personalize explanations and reading support for your account.")}
                   </p>
                 </div>
-                {learnerSaved && (
-                  <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-600 dark:text-emerald-400">
-                    {t("Saved")}
-                  </span>
-                )}
+                <div className="flex items-center gap-3">
+                  {learnerSaved && (
+                    <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-600 dark:text-emerald-400">
+                      {t("Saved")}
+                    </span>
+                  )}
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-[var(--muted-foreground)]">
+                    <input
+                      type="checkbox"
+                      checked={profile.personalization_enabled !== false}
+                      disabled={personalizationBusy}
+                      onChange={(event) =>
+                        void handlePersonalizationToggle(event.target.checked)
+                      }
+                      className="h-4 w-4 accent-[var(--primary)]"
+                    />
+                    {t("Enable personalization")}
+                  </label>
+                </div>
               </div>
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 {(

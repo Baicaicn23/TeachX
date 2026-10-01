@@ -42,6 +42,7 @@ export interface ProfileInfo {
   disabled?: boolean;
   /** Avatar marker: "", "icon:<name>:<color>", or "img:<version>". */
   avatar?: string;
+  personalization_enabled?: boolean;
 }
 
 function extractDetail(data: unknown, fallback: string): string {
@@ -64,6 +65,21 @@ export async function getProfile(): Promise<ProfileInfo> {
  * deterministic fallback (""). Uploaded-image markers are managed by
  * `uploadAvatarImage`.
  */
+export async function setPersonalizationEnabled(
+  enabled: boolean,
+): Promise<boolean> {
+  const res = await apiFetch(apiUrl("/api/auth/profile"), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ personalization_enabled: enabled }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to update personalization setting");
+  }
+  const data = await res.json();
+  return Boolean(data.personalization_enabled);
+}
+
 export async function setAvatarMarker(avatar: string): Promise<string> {
   const res = await apiFetch(apiUrl("/api/auth/profile"), {
     method: "PUT",

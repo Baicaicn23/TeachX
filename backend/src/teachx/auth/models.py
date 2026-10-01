@@ -12,6 +12,7 @@ class UserRecord:
     last_login_at: float | None = None
     avatar: str = ""
     learner_profile: dict[str, object] | None = None
+    personalization_enabled: bool = True
 
     @property
     def is_admin(self) -> bool:

@@ -19,7 +19,8 @@ MAX_AVATAR_BYTES = 1024 * 1024
 
 
 class ProfileUpdate(BaseModel):
-    avatar: str = Field(default="", max_length=128)
+    avatar: str | None = Field(default=None, max_length=128)
+    personalization_enabled: bool | None = None
 
 
 class LearnerProfileUpdate(BaseModel):
@@ -44,12 +45,25 @@ async def update_profile(
     user: UserRecord = Depends(require_user),
     container: ApplicationContainer = Depends(get_container),
 ) -> dict[str, object]:
-    avatar = payload.avatar.strip()
-    if avatar and not (avatar.startswith("icon:") or avatar.startswith("img:")):
-        raise HTTPException(status_code=400, detail="无效的头像标记")
-    updated = await container.auth.update_avatar(user.id, avatar)
-    if updated is None:
-        raise HTTPException(status_code=404, detail="用户不存在")
+    updated = user
+    if payload.avatar is not None:
+        avatar = payload.avatar.strip()
+        if avatar and not (avatar.startswith("icon:") or avatar.startswith("img:")):
+            raise HTTPException(status_code=400, detail="无效的头像标记")
+        changed = await container.auth.update_avatar(user.id, avatar)
+        if changed is None:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        updated = changed
+
+    if payload.personalization_enabled is not None:
+        changed = await container.auth.update_personalization(
+            user.id,
+            payload.personalization_enabled,
+        )
+        if changed is None:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        updated = changed
+
     return _profile_payload(updated)
 
 
@@ -136,6 +150,7 @@ def _profile_payload(user: UserRecord) -> dict[str, object]:
         "created_at": datetime.fromtimestamp(user.created_at, UTC).isoformat(),
         "disabled": False,
         "avatar": user.avatar,
+        "personalization_enabled": user.personalization_enabled,
     }
 
 
