@@ -23,6 +23,7 @@
 | [03](03-工具调用是怎么工作的.md) | 消息角色、工具 schema、工具调用闭环 | `runtime/tools.py`、`runtime/engine.py` |
 | [04](04-知识库与RAG.md) | 上传、提取、切块、FTS5、检索和引用 | `knowledge/`、`runtime/tools.py` |
 | [05](05-向量检索与混合排序.md) | Embedding、余弦相似度、RRF 和重建立索引 | `knowledge/embeddings.py`、`knowledge/service.py` |
+| [06](06-认证与权限.md) | bcrypt、JWT、Cookie、WebSocket 鉴权和会话隔离 | `auth/`、`api/auth_dependencies.py` |
 
 ## 学习方法
 

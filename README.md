@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="当前状态" src="https://img.shields.io/badge/status-P2%20%E5%AE%8C%E6%88%90-brightgreen">
+  <img alt="当前状态" src="https://img.shields.io/badge/status-P3%20%E5%BC%80%E5%8F%91%E4%B8%AD-brightgreen">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.12-blue">
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.142-009688">
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black">
@@ -22,7 +22,7 @@ Web 项目。它保留了 AI 学习产品真正有价值的核心：流式 Agent
 
 ## 当前状态
 
-P0、P1、P2 已完成。知识库支持关键词、向量和混合检索；真实 LLM/Embedding API 仍建议使用你的 Key 做一次线上联调。
+P0、P1、P2 已完成，P3 正在进行。当前已加入用户注册登录、JWT HttpOnly Cookie、WebSocket 鉴权和会话隔离；PostgreSQL、Docker 和知识库所有权隔离尚未完成。
 
 | 模块 | 状态 |
 | --- | --- |
@@ -35,13 +35,14 @@ P0、P1、P2 已完成。知识库支持关键词、向量和混合检索；真�
 | Mock 模型 | 可用 |
 | OpenAI 兼容模型适配器 | 已实现流式输出和工具参数拼接，等待真实供应商 API 联调 |
 | 知识库 | 支持 TXT、Markdown、PDF 上传，FTS5、向量和 RRF 混合检索 |
+| 登录认证 | bcrypt、JWT HttpOnly Cookie、WebSocket 鉴权、会话按用户隔离 |
 
 P1 的核心开发已经完成：`complete` 与 `stream` 双接口、真实 token 流式输出、
 工具参数分片拼接、能力模式提示词、会话标题生成和更完整的工具事件都已加入。
 
 P2 已经完成：知识库创建、文档上传、文本提取、段落切块、SQLite FTS5、Embedding
 向量索引、RRF 混合排序、`knowledge_search` 工具和 `sources` 引用事件都能端到端运行。
-下一阶段进入 P3：登录认证、PostgreSQL、Docker 和部署。
+P3 认证基础已经完成。下一步继续实现知识库所有权隔离、PostgreSQL、Docker 和部署。
 
 ## 为什么使用 TeachX
 
@@ -135,6 +136,25 @@ export TEACHX_EMBEDDING_PROVIDER=openai
 export TEACHX_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
+## 启用登录认证
+
+默认情况下，本地开发关闭认证。需要使用用户系统时设置：
+
+```bash
+export TEACHX_AUTH_ENABLED=true
+export TEACHX_AUTH_SECRET=replace-with-at-least-32-random-bytes
+export TEACHX_AUTH_COOKIE_SECURE=false
+```
+
+前端 `.env.local` 同时设置：
+
+```bash
+NEXT_PUBLIC_AUTH_ENABLED=true
+```
+
+第一个注册用户会获得管理员角色。正式 HTTPS 部署时，必须将
+`TEACHX_AUTH_COOKIE_SECURE=true`。
+
 ## 当前可用功能
 
 - 基于 WebSocket 的流式回合事件
@@ -150,6 +170,10 @@ export TEACHX_EMBEDDING_MODEL=text-embedding-3-small
 - FTS5 与向量结果的 RRF 混合排序
 - 已有文本块的向量重建索引
 - `knowledge_search` 工具与来源引用事件
+- 用户注册、登录和退出登录
+- bcrypt 密码哈希与 JWT HttpOnly Cookie
+- HTTP 与 WebSocket 认证边界
+- 会话按用户隔离
 - 原 DeepTutor 可选界面的兼容接口
 
 ## 项目结构
@@ -159,6 +183,7 @@ TeachX/
 ├── backend/                 FastAPI 服务和 Agent Runtime
 │   ├── src/teachx/
 │   │   ├── api/             HTTP 与 WebSocket 适配层
+│   │   ├── auth/            用户、密码和 JWT 服务
 │   │   ├── providers/       Mock 与 OpenAI 兼容模型适配器
 │   │   ├── knowledge/       文档提取、切块、索引和检索
 │   │   ├── runtime/         Agent Loop 和工具系统
@@ -206,6 +231,7 @@ npm run build
 - [03：工具调用是怎么工作的](docs/tutorials/03-工具调用是怎么工作的.md)
 - [04：知识库与 RAG](docs/tutorials/04-知识库与RAG.md)
 - [05：向量检索与混合排序](docs/tutorials/05-向量检索与混合排序.md)
+- [06：认证与权限](docs/tutorials/06-认证与权限.md)
 
 ## 开发路线
 
@@ -214,7 +240,7 @@ npm run build
 | P0 | 可运行的 Web 与后端垂直切片 | 已完成 |
 | P1 | 真实流式模型、工具轨迹、能力提示词 | 核心已完成，待真实 API 联调 |
 | P2 | 知识库上传、检索与引用 | 已完成 |
-| P3 | 登录认证、PostgreSQL、部署 | 计划中 |
+| P3 | 登录认证、PostgreSQL、部署 | 进行中，认证基础已完成 |
 | P4 | CI、截图、在线演示与简历文档 | 计划中 |
 
 真实供应商联调仍需配置 API Key，测试代码已经覆盖流式文本和分片工具参数。

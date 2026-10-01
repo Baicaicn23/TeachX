@@ -24,6 +24,7 @@ Next.js Web 界面
 ## 后端模块
 
 - `api`：HTTP 与 WebSocket 适配层。
+- `auth`：用户、密码哈希和 JWT 服务。
 - `runtime`：Agent Loop、能力模式和工具系统。
 - `providers`：Mock 与 OpenAI 兼容模型适配器。
 - `knowledge`：文档提取、切块、索引和检索。
@@ -65,6 +66,20 @@ Mock Embedding 用于本地开发，真实环境可切换 OpenAI 兼容 Embeddin
 
 OpenAI 兼容 Provider 会累计流式工具参数。因为真实模型可能把
 `{"expression": "2 + 3"}` 拆成多个片段发送，不能假设参数一次到齐。
+
+## 认证边界
+
+```text
+注册/登录
+→ bcrypt 验证密码
+→ 签发 JWT
+→ 写入 HttpOnly Cookie
+→ HTTP 依赖与 WebSocket 握手验证
+→ 会话按 user_id 隔离
+```
+
+认证关闭时返回本地开发用户，保持单用户模式。认证开启时，受保护接口和
+WebSocket 都必须在后端验证 Cookie，不能依赖前端路由隐藏。
 
 ## 设计规则
 
