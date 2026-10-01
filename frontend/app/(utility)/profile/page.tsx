@@ -4,14 +4,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createElement } from "react";
-import { ArrowLeft, ImageUp, KeyRound, LogOut, ShieldCheck, Trash2 } from "lucide-react";
+import { ArrowLeft, ImageUp, KeyRound, LogOut, Save, ShieldCheck, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { fetchAuthStatus, logout } from "@/lib/auth";
 import {
+  getOwnLearnerProfile,
   getProfile,
   removeAvatarImage,
   setAvatarMarker,
+  setOwnLearnerProfile,
   uploadAvatarImage,
+  type LearnerProfile,
   type ProfileInfo,
 } from "@/lib/profile-api";
 import {
@@ -99,6 +102,9 @@ export default function ProfilePage() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const [profile, setProfile] = useState<ProfileInfo | null>(null);
+  const [learnerProfile, setLearnerProfile] = useState<LearnerProfile>({});
+  const [learnerSaving, setLearnerSaving] = useState(false);
+  const [learnerSaved, setLearnerSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,8 +124,14 @@ export default function ProfilePage() {
         return;
       }
       try {
-        const info = await getProfile();
-        if (!cancelled) setProfile(info);
+        const [info, learning] = await Promise.all([
+          getProfile(),
+          getOwnLearnerProfile().catch(() => null),
+        ]);
+        if (!cancelled) {
+          setProfile(info);
+          setLearnerProfile(learning ?? {});
+        }
       } catch {
         if (!cancelled) setError(t("Failed to load profile"));
       } finally {
@@ -177,6 +189,36 @@ export default function ProfilePage() {
       setBusy(false);
     }
   }, []);
+
+  const updateLearnerProfile = useCallback(
+    (key: keyof LearnerProfile, value: string) => {
+      setLearnerSaved(false);
+      setLearnerProfile((current) => ({
+        ...current,
+        [key]:
+          key === "age"
+            ? value
+              ? Number(value)
+              : undefined
+            : value || undefined,
+      }));
+    },
+    [],
+  );
+
+  const handleSaveLearnerProfile = useCallback(async () => {
+    setLearnerSaving(true);
+    setError(null);
+    try {
+      const saved = await setOwnLearnerProfile(learnerProfile);
+      setLearnerProfile(saved ?? {});
+      setLearnerSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLearnerSaving(false);
+    }
+  }, [learnerProfile]);
 
   const handleSignOut = useCallback(async () => {
     await logout();
@@ -384,6 +426,58 @@ export default function ProfilePage() {
                   })}
                 </div>
               </div>
+            </div>
+
+            {/* Learner profile card */}
+            <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-sm font-semibold text-[var(--foreground)]">
+                    {t("Learner profile")}
+                  </h2>
+                  <p className="mt-0.5 text-sm text-[var(--muted-foreground)]">
+                    {t("Personalize explanations and reading support for your account.")}
+                  </p>
+                </div>
+                {learnerSaved && (
+                  <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-600 dark:text-emerald-400">
+                    {t("Saved")}
+                  </span>
+                )}
+              </div>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                {(
+                  [
+                    ["age", "Age"],
+                    ["grade_level", "Grade level"],
+                    ["curriculum", "Curriculum"],
+                    ["language", "Preferred language"],
+                    ["reading_level", "Reading level"],
+                    ["explanation_style", "Explanation style"],
+                  ] as Array<[keyof LearnerProfile, string]>
+                ).map(([key, label]) => (
+                  <label key={key} className="grid gap-1.5 text-sm">
+                    <span className="text-[var(--muted-foreground)]">{t(label)}</span>
+                    <input
+                      type={key === "age" ? "number" : "text"}
+                      min={key === "age" ? 3 : undefined}
+                      max={key === "age" ? 120 : undefined}
+                      value={learnerProfile[key] ?? ""}
+                      onChange={(event) => updateLearnerProfile(key, event.target.value)}
+                      className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)] outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                    />
+                  </label>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleSaveLearnerProfile()}
+                disabled={learnerSaving}
+                className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                <Save size={15} />
+                {learnerSaving ? t("Saving…") : t("Save learner profile")}
+              </button>
             </div>
 
             {/* Sign out card */}

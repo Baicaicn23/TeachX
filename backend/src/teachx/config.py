@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     port: int = 8000
     database_path: Path = Field(default=Path("data/teachx.db"))
     knowledge_root: Path = Field(default=Path("data/knowledge"))
+    avatar_root: Path = Field(default=Path("data/avatars"))
     max_upload_bytes: int = 20 * 1024 * 1024
 
     llm_provider: str = "mock"
@@ -48,6 +49,9 @@ class Settings(BaseSettings):
 
     def resolved_knowledge_root(self) -> Path:
         return self._resolve_project_path(self.knowledge_root)
+
+    def resolved_avatar_root(self) -> Path:
+        return self._resolve_project_path(self.avatar_root)
 
 
 @lru_cache

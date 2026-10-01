@@ -6,6 +6,7 @@ from teachx.api.routes import (
     compat,
     health,
     knowledge,
+    profile,
     sessions,
     settings,
     tools,
@@ -13,6 +14,7 @@ from teachx.api.routes import (
 
 api_router = APIRouter()
 api_router.include_router(auth.router)
+api_router.include_router(profile.router)
 api_router.include_router(health.router)
 api_router.include_router(capabilities.router)
 api_router.include_router(compat.router)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import time
 import uuid
@@ -151,6 +152,37 @@ class AuthService:
             row = await cursor.fetchone()
         return self._user_from_row(row) if row else None
 
+    async def get_user(self, user_id: str) -> UserRecord | None:
+        async with self.database.connect() as connection:
+            cursor = await connection.execute(
+                "SELECT * FROM users WHERE id = ?",
+                (user_id,),
+            )
+            row = await cursor.fetchone()
+        return self._user_from_row(row) if row else None
+
+    async def update_avatar(self, user_id: str, avatar: str) -> UserRecord | None:
+        async with self.database.connect() as connection:
+            await connection.execute(
+                "UPDATE users SET avatar = ?, updated_at = ? WHERE id = ?",
+                (avatar, time.time(), user_id),
+            )
+            await connection.commit()
+        return await self.get_user(user_id)
+
+    async def update_learner_profile(
+        self,
+        user_id: str,
+        profile: dict[str, Any],
+    ) -> UserRecord | None:
+        async with self.database.connect() as connection:
+            await connection.execute(
+                "UPDATE users SET learner_profile = ?, updated_at = ? WHERE id = ?",
+                (json.dumps(profile, ensure_ascii=False), time.time(), user_id),
+            )
+            await connection.commit()
+        return await self.get_user(user_id)
+
     @staticmethod
     def _hash_password(password: str) -> str:
         return bcrypt.hashpw(
@@ -185,5 +217,9 @@ class AuthService:
                 else float(row["last_login_at"])
                 if row["last_login_at"] is not None
                 else None
+            ),
+            avatar=str(row["avatar"] or ""),
+            learner_profile=(
+                json.loads(row["learner_profile"]) if row["learner_profile"] else None
             ),
         )

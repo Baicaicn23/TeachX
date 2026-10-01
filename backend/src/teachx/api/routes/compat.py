@@ -29,9 +29,67 @@ async def settings() -> dict[str, object]:
     """Compatibility payload for the reused frontend settings shell."""
     return {
         "catalog": {
-            "active": {"profile_id": "mock", "model_id": "teachx-mock"},
-            "profiles": [],
+            "version": 1,
+            "connections": [],
+            "services": {
+                "llm": {
+                    "active_profile_id": None,
+                    "active_model_id": None,
+                    "profiles": [],
+                },
+                "task": {
+                    "active_profile_id": None,
+                    "active_model_id": None,
+                    "profiles": [],
+                },
+                "embedding": {
+                    "active_profile_id": None,
+                    "active_model_id": None,
+                    "profiles": [],
+                },
+                "search": {"active_profile_id": None, "profiles": []},
+                "tts": {
+                    "active_profile_id": None,
+                    "active_model_id": None,
+                    "profiles": [],
+                },
+                "stt": {
+                    "active_profile_id": None,
+                    "active_model_id": None,
+                    "profiles": [],
+                },
+                "imagegen": {
+                    "active_profile_id": None,
+                    "active_model_id": None,
+                    "profiles": [],
+                },
+                "videogen": {
+                    "active_profile_id": None,
+                    "active_model_id": None,
+                    "profiles": [],
+                },
+            },
         },
+        "ui": {
+            "theme": "light",
+            "language": "zh",
+            "response_language": "zh",
+            "code_block_theme": "github-dark",
+            "code_block_show_line_numbers": True,
+            "code_block_wrap_long_lines": False,
+        },
+        "providers": {
+            "llm": [],
+            "task": [],
+            "embedding": [],
+            "search": [],
+            "tts": [],
+            "stt": [],
+            "imagegen": [],
+            "videogen": [],
+        },
+        "connection_targets": {},
+        "task_kinds": [],
         "language": "zh",
         "theme": "light",
     }

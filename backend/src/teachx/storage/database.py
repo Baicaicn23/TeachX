@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'user',
+    avatar TEXT NOT NULL DEFAULT '',
+    learner_profile TEXT NOT NULL DEFAULT '{}',
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL,
     last_login_at REAL NULL
@@ -128,6 +130,18 @@ class Database:
                 table="knowledge_bases",
                 column="owner_id",
                 definition="TEXT NOT NULL DEFAULT ''",
+            )
+            await self._ensure_column(
+                connection,
+                table="users",
+                column="avatar",
+                definition="TEXT NOT NULL DEFAULT ''",
+            )
+            await self._ensure_column(
+                connection,
+                table="users",
+                column="learner_profile",
+                definition="TEXT NOT NULL DEFAULT '{}'",
             )
             await connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_sessions_user_updated "

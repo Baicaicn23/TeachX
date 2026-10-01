@@ -120,6 +120,6 @@ def _status_payload(user: UserRecord | None, *, enabled: bool) -> dict[str, obje
         "role": user.role,
         "is_admin": user.is_admin,
         "preset": "standard",
-        "avatar": "",
+        "avatar": user.avatar,
         "learning_policy": None,
     }
