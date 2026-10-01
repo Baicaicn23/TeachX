@@ -59,13 +59,15 @@ CI：GitHub Actions，后端检查和前端构建
 - U1 学习档案注入提示词完成。
 - U2 聊天页个性化状态完成。
 - U3 首次使用引导完成。
-- 当前下一步是 U4：学习反馈与错题记录。
-- 后端测试 `24 passed`。
+- U4 学习反馈与错题记录完成。
+- 当前下一步是 U5：练习与复习模式。
+- 后端测试 `26 passed`。
 - Git 工作区应保持干净。
 
 最近功能提交：
 
 ```text
+2c1f302 feat: add learning feedback and mistake records
 abed83c feat: add first-run onboarding
 560cee9 docs: add chat personalization status tutorial
 f51bf41 feat: show personalization status in chat
@@ -172,9 +174,9 @@ npm run build
 当前预期：
 
 ```text
-24 passed
+26 passed
 typecheck passed
-44 Next.js routes built
+45 Next.js routes built
 ```
 
 ## 核心运行链路
@@ -241,6 +243,9 @@ Next.js Chat UI
 | `frontend/app/(auth)/onboarding/page.tsx` | 三步首次使用引导 |
 | `frontend/components/auth/OnboardingGate.tsx` | 未完成引导用户的工作区门禁 |
 | `frontend/lib/onboarding-api.ts` | 引导状态、完成状态和首份资料上传 |
+| `frontend/features/chat/messages/AnswerFeedbackActions.tsx` | 有帮助、不清楚和误区反馈操作 |
+| `frontend/app/(utility)/learning-records/page.tsx` | 学习记录筛选、回看、继续追问和删除 |
+| `frontend/lib/answer-feedback-api.ts` | 回答反馈 API 客户端 |
 | `frontend/features/chat/ChatStateAdapter.tsx` | WebSocket 状态机和消息展示 |
 
 ## 当前用户可用功能
@@ -251,6 +256,7 @@ Next.js Chat UI
 - 图标头像和图片头像。
 - 学习档案。
 - 首次使用引导，可跳过并上传可选资料。
+- 回答反馈和学习误区记录，可筛选、回看、继续追问和删除。
 - 个性化开关。
 - 聊天页个性化状态条。
 - 流式聊天。
@@ -271,6 +277,15 @@ POST   /api/auth/login
 POST   /api/auth/logout
 GET    /api/auth/onboarding
 POST   /api/auth/onboarding/complete
+```
+
+### 学习记录
+
+```text
+GET    /api/learning/feedback?session_id={session_id}
+GET    /api/learning/records
+PUT    /api/learning/feedback/{message_id}
+DELETE /api/learning/records/{feedback_id}
 ```
 
 ### 个人资料
@@ -320,6 +335,7 @@ knowledge_documents
 knowledge_chunks
 knowledge_chunks_fts
 knowledge_chunk_vectors
+answer_feedback
 ```
 
 用户数据：
@@ -329,6 +345,7 @@ users.avatar
 users.learner_profile
 users.personalization_enabled
 users.onboarding_completed
+answer_feedback.user_id
 ```
 
 会话所有权：
@@ -350,7 +367,7 @@ knowledge_bases.owner_id
 - `docs/roadmap.md`
 - `docs/tutorials/README.md`
 
-当前焦点是 U4：学习反馈与错题记录。
+当前焦点是 U5：练习与复习模式。
 
 ### U3 完成情况
 
@@ -367,9 +384,23 @@ knowledge_bases.owner_id
 
 提交：`abed83c`
 
-### U4 下一步
+### U4 完成情况
 
 让用户可以标记回答是否有帮助，并把错题和概念误区保存为后续可引用的学习记录。
+
+- 已回答支持“有帮助”“不清楚”和“记录我的误区”。
+- 学习记录按用户隔离，支持筛选、回看、删除和继续追问。
+- 误区可通过 workspace draft 带回聊天输入框。
+- 桌面浏览器完成端到端验证。
+- 教程、README、roadmap 和提交已同步。
+
+教程：[14：学习反馈与错题记录](tutorials/14-学习反馈与错题记录.md)
+
+提交：`2c1f302`
+
+### U5 下一步
+
+根据知识库生成练习题，保存答案和判定结果，并形成复习计划与掌握度变化。
 
 ## 当前已知限制
 
@@ -439,5 +470,5 @@ git push
 2. 阅读 `docs/roadmap.md`。
 3. 执行 `git status` 和 `git log -5`。
 4. 执行 `./scripts/check.sh`。
-5. 从 U4 开始，不要重做已验证功能。
+5. 从 U5 开始，不要重做已验证功能。
 6. 先在浏览器验证现状，再开始修改。

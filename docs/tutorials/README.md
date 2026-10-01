@@ -31,6 +31,7 @@
 | [11](11-个性化提示词.md) | 学习档案注入、开启关闭、注入防护和提示词测试 | `runtime/prompts.py`、`runtime/engine.py` |
 | [12](12-聊天页个性化状态.md) | 个性化状态条、快速开关、下一回合生效和独立组件设计 | `PersonalizationStatus.tsx`、`profile-api.ts` |
 | [13](13-首次使用引导.md) | 首次引导、跳过状态、学习目标、可选资料和旧用户迁移 | `onboarding/page.tsx`、`onboarding-api.ts` |
+| [14](14-学习反馈与错题记录.md) | 回答反馈、误区记录、用户隔离、记录管理和聊天草稿回流 | `AnswerFeedbackActions.tsx`、`answer-feedback-api.ts` |
 
 ## 项目路线图
 
