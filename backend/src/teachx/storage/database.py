@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS knowledge_bases (
     name TEXT PRIMARY KEY,
     description TEXT NOT NULL DEFAULT '',
     provider TEXT NOT NULL DEFAULT 'sqlite-fts',
+    owner_id TEXT NOT NULL DEFAULT '',
     is_default INTEGER NOT NULL DEFAULT 0,
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL
@@ -122,9 +123,19 @@ class Database:
                 column="user_id",
                 definition="TEXT NOT NULL DEFAULT ''",
             )
+            await self._ensure_column(
+                connection,
+                table="knowledge_bases",
+                column="owner_id",
+                definition="TEXT NOT NULL DEFAULT ''",
+            )
             await connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_sessions_user_updated "
                 "ON sessions(user_id, updated_at DESC)"
+            )
+            await connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_knowledge_bases_owner "
+                "ON knowledge_bases(owner_id, updated_at DESC)"
             )
             await connection.commit()
 

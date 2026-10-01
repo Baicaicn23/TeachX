@@ -40,6 +40,7 @@ class AgentRuntime:
         command: StartTurnCommand,
         *,
         user_id: str = "",
+        is_admin: bool = False,
     ) -> AsyncIterator[dict[str, Any]]:
         command.capability = command.capability or "chat"
         fallback_title = self._title_from_prompt(command.content)
@@ -84,6 +85,8 @@ class AgentRuntime:
         tool_schemas = self.tools.schemas(enabled_tools)
         tool_context = ToolContext(
             session_id=session_id,
+            user_id=user_id,
+            is_admin=is_admin,
             knowledge_bases=tuple(command.knowledge_bases),
         )
         saved_events: list[dict[str, Any]] = []

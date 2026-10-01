@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from teachx.api.auth_dependencies import require_user
 from teachx.api.container import ApplicationContainer
 from teachx.api.dependencies import get_container
+from teachx.auth.models import UserRecord
 from teachx.knowledge.extractors import SUPPORTED_EXTENSIONS
 from teachx.knowledge.models import KnowledgeBaseRecord
 from teachx.knowledge.service import KnowledgeError
@@ -23,8 +24,9 @@ router = APIRouter(
 @router.get("")
 async def list_knowledge_bases(
     container: ApplicationContainer = Depends(get_container),
+    user: UserRecord = Depends(require_user),
 ) -> dict[str, list[dict[str, object]]]:
-    bases = await container.knowledge.list_bases()
+    bases = await container.knowledge.list_bases(user.id, is_admin=user.is_admin)
     return {"knowledge_bases": [_serialize_base(base) for base in bases]}
 
 
@@ -70,15 +72,21 @@ async def create_knowledge_base(
     rel_paths: list[str] = Form(default=[]),
     dest_subdir: str = Form(default=""),
     container: ApplicationContainer = Depends(get_container),
+    user: UserRecord = Depends(require_user),
 ) -> dict[str, object]:
     try:
-        await container.knowledge.create_base(name, provider=rag_provider)
+        await container.knowledge.create_base(
+            name,
+            provider=rag_provider,
+            owner_id=user.id,
+        )
         created = await _ingest_files(
             container,
             name,
             files,
             rel_paths,
             dest_subdir=dest_subdir,
+            user=user,
         )
     except KnowledgeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -93,11 +101,16 @@ async def create_knowledge_base(
 async def delete_knowledge_base(
     payload: dict[str, str],
     container: ApplicationContainer = Depends(get_container),
+    user: UserRecord = Depends(require_user),
 ) -> dict[str, bool]:
     name = str(payload.get("name") or "")
     if not name:
         raise HTTPException(status_code=400, detail="name is required")
-    deleted = await container.knowledge.delete_base(name)
+    deleted = await container.knowledge.delete_base(
+        name,
+        user.id,
+        is_admin=user.is_admin,
+    )
     if not deleted:
         raise HTTPException(status_code=404, detail="知识库不存在")
     return {"deleted": True}
@@ -107,9 +120,14 @@ async def delete_knowledge_base(
 async def set_default_knowledge_base(
     name: str,
     container: ApplicationContainer = Depends(get_container),
+    user: UserRecord = Depends(require_user),
 ) -> dict[str, bool]:
     try:
-        await container.knowledge.set_default(name)
+        await container.knowledge.set_default(
+            name,
+            user.id,
+            is_admin=user.is_admin,
+        )
     except KnowledgeError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {"ok": True}
@@ -119,8 +137,13 @@ async def set_default_knowledge_base(
 async def get_knowledge_base(
     kb_name: str,
     container: ApplicationContainer = Depends(get_container),
+    user: UserRecord = Depends(require_user),
 ) -> dict[str, object]:
-    base = await container.knowledge.get_base(kb_name)
+    base = await container.knowledge.get_base(
+        kb_name,
+        user.id,
+        is_admin=user.is_admin,
+    )
     if base is None:
         raise HTTPException(status_code=404, detail="知识库不存在")
     return _serialize_base(base)
@@ -133,6 +156,7 @@ async def upload_knowledge_files(
     rel_paths: list[str] = Form(default=[]),
     dest_subdir: str = Form(default=""),
     container: ApplicationContainer = Depends(get_container),
+    user: UserRecord = Depends(require_user),
 ) -> dict[str, object]:
     try:
         created = await _ingest_files(
@@ -141,6 +165,7 @@ async def upload_knowledge_files(
             files,
             rel_paths,
             dest_subdir=dest_subdir,
+            user=user,
         )
     except KnowledgeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -155,9 +180,14 @@ async def upload_knowledge_files(
 async def list_knowledge_files(
     kb_name: str,
     container: ApplicationContainer = Depends(get_container),
+    user: UserRecord = Depends(require_user),
 ) -> dict[str, list[dict[str, object]]]:
     try:
-        files = await container.knowledge.list_documents(kb_name)
+        files = await container.knowledge.list_documents(
+            kb_name,
+            user.id,
+            is_admin=user.is_admin,
+        )
     except KnowledgeError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {"files": files}
@@ -168,9 +198,15 @@ async def preview_knowledge_file(
     kb_name: str,
     filename: str,
     container: ApplicationContainer = Depends(get_container),
+    user: UserRecord = Depends(require_user),
 ) -> dict[str, str]:
     try:
-        text = await container.knowledge.get_document_text(kb_name, filename)
+        text = await container.knowledge.get_document_text(
+            kb_name,
+            filename,
+            user.id,
+            is_admin=user.is_admin,
+        )
     except KnowledgeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if text is None:
@@ -183,8 +219,18 @@ async def download_knowledge_file(
     kb_name: str,
     filename: str,
     container: ApplicationContainer = Depends(get_container),
+    user: UserRecord = Depends(require_user),
 ) -> FileResponse:
     try:
+        if (
+            await container.knowledge.get_base(
+                kb_name,
+                user.id,
+                is_admin=user.is_admin,
+            )
+            is None
+        ):
+            raise KnowledgeError(f"知识库不存在：{kb_name}")
         path = container.knowledge.document_path(kb_name, filename)
     except KnowledgeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -198,9 +244,15 @@ async def delete_knowledge_file(
     kb_name: str,
     filename: str,
     container: ApplicationContainer = Depends(get_container),
+    user: UserRecord = Depends(require_user),
 ) -> dict[str, bool]:
     try:
-        deleted = await container.knowledge.delete_document(kb_name, filename)
+        deleted = await container.knowledge.delete_document(
+            kb_name,
+            filename,
+            user.id,
+            is_admin=user.is_admin,
+        )
     except KnowledgeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not deleted:
@@ -214,8 +266,15 @@ async def search_knowledge_base(
     q: str,
     limit: int = 5,
     container: ApplicationContainer = Depends(get_container),
+    user: UserRecord = Depends(require_user),
 ) -> dict[str, list[dict[str, object]]]:
-    hits = await container.knowledge.search(q, [kb_name], limit=limit)
+    hits = await container.knowledge.search(
+        q,
+        [kb_name],
+        limit=limit,
+        owner_id=user.id,
+        is_admin=user.is_admin,
+    )
     return {
         "results": [
             {
@@ -235,10 +294,13 @@ async def search_knowledge_base(
 async def reindex_knowledge_base(
     kb_name: str,
     container: ApplicationContainer = Depends(get_container),
+    user: UserRecord = Depends(require_user),
 ) -> dict[str, object]:
-    if await container.knowledge.get_base(kb_name) is None:
-        raise HTTPException(status_code=404, detail="知识库不存在")
-    indexed = await container.knowledge.reindex_embeddings(kb_name)
+    indexed = await container.knowledge.reindex_embeddings(
+        kb_name,
+        user.id,
+        is_admin=user.is_admin,
+    )
     return {
         "noop": indexed == 0,
         "message": (
@@ -254,6 +316,7 @@ async def _ingest_files(
     rel_paths: list[str],
     *,
     dest_subdir: str = "",
+    user: UserRecord,
 ) -> int:
     created = 0
     for index, upload in enumerate(files):
@@ -271,6 +334,8 @@ async def _ingest_files(
             content,
             relative_path=proposed_path,
             mime_type=upload.content_type,
+            owner_id=user.id,
+            is_admin=user.is_admin,
         )
         created += 1
     return created

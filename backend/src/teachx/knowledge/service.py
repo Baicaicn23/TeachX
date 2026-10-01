@@ -45,6 +45,7 @@ class KnowledgeService:
         name: str,
         description: str = "",
         provider: str = "sqlite-fts",
+        owner_id: str = "",
     ) -> KnowledgeBaseRecord:
         name = self._validate_name(name)
         now = time.time()
@@ -57,35 +58,64 @@ class KnowledgeService:
             if exists:
                 raise KnowledgeError(f"知识库已存在：{name}")
 
-            cursor = await connection.execute("SELECT COUNT(*) FROM knowledge_bases")
+            cursor = await connection.execute(
+                "SELECT COUNT(*) FROM knowledge_bases WHERE owner_id = ?",
+                (owner_id,),
+            )
             count_row = await cursor.fetchone()
             is_default = int(count_row[0] if count_row else 0) == 0
             await connection.execute(
                 """
                 INSERT INTO knowledge_bases (
-                    name, description, provider, is_default, created_at, updated_at
+                    name, description, provider, owner_id,
+                    is_default, created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (name, description.strip(), provider.strip() or "sqlite-fts", is_default, now, now),
+                (
+                    name,
+                    description.strip(),
+                    provider.strip() or "sqlite-fts",
+                    owner_id,
+                    is_default,
+                    now,
+                    now,
+                ),
             )
             await connection.commit()
         (self.root / name / "raw").mkdir(parents=True, exist_ok=True)
-        record = await self.get_base(name)
+        record = await self.get_base(name, owner_id=owner_id)
         if record is None:
             raise KnowledgeError("知识库创建失败")
         return record
 
-    async def ensure_base(self, name: str) -> KnowledgeBaseRecord:
-        record = await self.get_base(name)
+    async def ensure_base(
+        self,
+        name: str,
+        owner_id: str = "",
+        *,
+        is_admin: bool = False,
+    ) -> KnowledgeBaseRecord:
+        record = await self.get_base(name, owner_id=owner_id, is_admin=is_admin)
         if record is None:
-            return await self.create_base(name)
+            if owner_id and not is_admin:
+                existing = await self.get_base(name, is_admin=True)
+                if existing is not None:
+                    raise KnowledgeError(f"知识库已存在：{name}")
+            return await self.create_base(name, owner_id=owner_id)
         return record
 
-    async def list_bases(self) -> list[KnowledgeBaseRecord]:
+    async def list_bases(
+        self,
+        owner_id: str = "",
+        *,
+        is_admin: bool = False,
+    ) -> list[KnowledgeBaseRecord]:
+        owner_where = "" if not owner_id or is_admin else "WHERE b.owner_id = ?"
+        params: tuple[Any, ...] = () if not owner_where else (owner_id,)
         async with self.database.connect() as connection:
             cursor = await connection.execute(
-                """
+                f"""
                 SELECT
                     b.*,
                     COUNT(DISTINCT d.id) AS document_count,
@@ -93,17 +123,27 @@ class KnowledgeService:
                 FROM knowledge_bases b
                 LEFT JOIN knowledge_documents d ON d.kb_name = b.name
                 LEFT JOIN knowledge_chunks c ON c.kb_name = b.name
+                {owner_where}
                 GROUP BY b.name
                 ORDER BY b.is_default DESC, b.updated_at DESC
-                """
+                """,
+                params,
             )
             rows = await cursor.fetchall()
         return [self._base_from_row(row) for row in rows]
 
-    async def get_base(self, name: str) -> KnowledgeBaseRecord | None:
+    async def get_base(
+        self,
+        name: str,
+        owner_id: str = "",
+        *,
+        is_admin: bool = False,
+    ) -> KnowledgeBaseRecord | None:
+        owner_clause = "" if not owner_id or is_admin else " AND b.owner_id = ?"
+        params: tuple[Any, ...] = (name,) if not owner_clause else (name, owner_id)
         async with self.database.connect() as connection:
             cursor = await connection.execute(
-                """
+                f"""
                 SELECT
                     b.*,
                     COUNT(DISTINCT d.id) AS document_count,
@@ -111,10 +151,10 @@ class KnowledgeService:
                 FROM knowledge_bases b
                 LEFT JOIN knowledge_documents d ON d.kb_name = b.name
                 LEFT JOIN knowledge_chunks c ON c.kb_name = b.name
-                WHERE b.name = ?
+                WHERE b.name = ?{owner_clause}
                 GROUP BY b.name
                 """,
-                (name,),
+                params,
             )
             row = await cursor.fetchone()
         return self._base_from_row(row) if row else None
@@ -127,11 +167,13 @@ class KnowledgeService:
         *,
         relative_path: str = "",
         mime_type: str | None = None,
+        owner_id: str = "",
+        is_admin: bool = False,
     ) -> IngestResult:
         if len(content) > self.max_file_bytes:
             raise KnowledgeError(f"文件超过大小限制：{len(content)} > {self.max_file_bytes} bytes")
 
-        await self.ensure_base(knowledge_base)
+        await self.ensure_base(knowledge_base, owner_id, is_admin=is_admin)
         rel_path = self._safe_relative_path(relative_path or filename)
         text = extract_text(filename, content)
         chunks = self.chunker.chunk(text)
@@ -232,8 +274,14 @@ class KnowledgeService:
             characters=len(text),
         )
 
-    async def list_documents(self, knowledge_base: str) -> list[dict[str, Any]]:
-        if await self.get_base(knowledge_base) is None:
+    async def list_documents(
+        self,
+        knowledge_base: str,
+        owner_id: str = "",
+        *,
+        is_admin: bool = False,
+    ) -> list[dict[str, Any]]:
+        if await self.get_base(knowledge_base, owner_id, is_admin=is_admin) is None:
             raise KnowledgeError(f"知识库不存在：{knowledge_base}")
         async with self.database.connect() as connection:
             cursor = await connection.execute(
@@ -267,7 +315,12 @@ class KnowledgeService:
         self,
         knowledge_base: str,
         relative_path: str,
+        owner_id: str = "",
+        *,
+        is_admin: bool = False,
     ) -> str | None:
+        if await self.get_base(knowledge_base, owner_id, is_admin=is_admin) is None:
+            raise KnowledgeError(f"知识库不存在：{knowledge_base}")
         safe_path = self._safe_relative_path(relative_path)
         async with self.database.connect() as connection:
             cursor = await connection.execute(
@@ -280,7 +333,16 @@ class KnowledgeService:
             row = await cursor.fetchone()
         return str(row["content"]) if row else None
 
-    async def delete_document(self, knowledge_base: str, relative_path: str) -> bool:
+    async def delete_document(
+        self,
+        knowledge_base: str,
+        relative_path: str,
+        owner_id: str = "",
+        *,
+        is_admin: bool = False,
+    ) -> bool:
+        if await self.get_base(knowledge_base, owner_id, is_admin=is_admin) is None:
+            raise KnowledgeError(f"知识库不存在：{knowledge_base}")
         safe_path = self._safe_relative_path(relative_path)
         async with self.database.connect() as connection:
             cursor = await connection.execute(
@@ -298,7 +360,15 @@ class KnowledgeService:
             file_path.unlink()
         return True
 
-    async def delete_base(self, name: str) -> bool:
+    async def delete_base(
+        self,
+        name: str,
+        owner_id: str = "",
+        *,
+        is_admin: bool = False,
+    ) -> bool:
+        if await self.get_base(name, owner_id, is_admin=is_admin) is None:
+            return False
         async with self.database.connect() as connection:
             cursor = await connection.execute(
                 """
@@ -331,15 +401,24 @@ class KnowledgeService:
                 base_dir.rmdir()
         return deleted
 
-    async def set_default(self, name: str) -> None:
+    async def set_default(
+        self,
+        name: str,
+        owner_id: str = "",
+        *,
+        is_admin: bool = False,
+    ) -> None:
+        base = await self.get_base(name, owner_id, is_admin=is_admin)
+        if base is None:
+            raise KnowledgeError(f"知识库不存在：{name}")
         async with self.database.connect() as connection:
-            cursor = await connection.execute(
-                "SELECT name FROM knowledge_bases WHERE name = ?",
-                (name,),
-            )
-            if await cursor.fetchone() is None:
-                raise KnowledgeError(f"知识库不存在：{name}")
-            await connection.execute("UPDATE knowledge_bases SET is_default = 0")
+            if owner_id and not is_admin:
+                await connection.execute(
+                    "UPDATE knowledge_bases SET is_default = 0 WHERE owner_id = ?",
+                    (owner_id,),
+                )
+            else:
+                await connection.execute("UPDATE knowledge_bases SET is_default = 0")
             await connection.execute(
                 "UPDATE knowledge_bases SET is_default = 1, updated_at = ? WHERE name = ?",
                 (time.time(), name),
@@ -352,6 +431,8 @@ class KnowledgeService:
         knowledge_bases: list[str] | tuple[str, ...] | None = None,
         *,
         limit: int = 5,
+        owner_id: str = "",
+        is_admin: bool = False,
     ) -> list[SearchHit]:
         query = query.strip()
         if not query:
@@ -359,18 +440,45 @@ class KnowledgeService:
         limit = max(1, min(limit, 20))
         names = list(knowledge_bases or [])
         if not names:
-            bases = await self.list_bases()
+            bases = await self.list_bases(owner_id, is_admin=is_admin)
             names = [base.name for base in bases]
         if not names:
             return []
 
-        fts_hits = await self._search_fts(query, names, limit * 3)
-        vector_hits = await self._search_vectors(query, names, limit * 3)
+        fts_hits = await self._search_fts(
+            query,
+            names,
+            limit * 3,
+            owner_id=owner_id,
+            is_admin=is_admin,
+        )
+        vector_hits = await self._search_vectors(
+            query,
+            names,
+            limit * 3,
+            owner_id=owner_id,
+            is_admin=is_admin,
+        )
         return self._fuse_results([fts_hits, vector_hits], limit)
 
-    async def reindex_embeddings(self, knowledge_base: str) -> int:
+    async def reindex_embeddings(
+        self,
+        knowledge_base: str,
+        owner_id: str = "",
+        *,
+        is_admin: bool = False,
+    ) -> int:
         """为已有文本块补建当前 embedding 模型对应的向量。"""
 
+        if (
+            await self.get_base(
+                knowledge_base,
+                owner_id,
+                is_admin=is_admin,
+            )
+            is None
+        ):
+            raise KnowledgeError(f"知识库不存在：{knowledge_base}")
         if self.embedder is None:
             return 0
         async with self.database.connect() as connection:
@@ -426,11 +534,15 @@ class KnowledgeService:
         query: str,
         names: list[str],
         limit: int,
+        *,
+        owner_id: str = "",
+        is_admin: bool = False,
     ) -> list[SearchHit]:
         terms = self._query_terms(query)
         if not terms:
             return []
         placeholders = ", ".join("?" for _ in names)
+        owner_clause, owner_params = self._owner_filter("b", owner_id, is_admin)
         fts_query = " OR ".join(f'"{term}"' for term in terms)
         sql = f"""
             SELECT
@@ -443,14 +555,19 @@ class KnowledgeService:
             FROM knowledge_chunks_fts
             JOIN knowledge_chunks c ON c.id = knowledge_chunks_fts.rowid
             JOIN knowledge_documents d ON d.id = c.document_id
+            JOIN knowledge_bases b ON b.name = c.kb_name
             WHERE knowledge_chunks_fts MATCH ?
               AND c.kb_name IN ({placeholders})
+              {owner_clause}
             ORDER BY rank
             LIMIT ?
         """
         async with self.database.connect() as connection:
             try:
-                cursor = await connection.execute(sql, (fts_query, *names, limit))
+                cursor = await connection.execute(
+                    sql,
+                    (fts_query, *names, *owner_params, limit),
+                )
                 rows = await cursor.fetchall()
             except Exception:
                 rows = []
@@ -467,11 +584,18 @@ class KnowledgeService:
                         0.0 AS rank
                     FROM knowledge_chunks c
                     JOIN knowledge_documents d ON d.id = c.document_id
+                    JOIN knowledge_bases b ON b.name = c.kb_name
                     WHERE ({like_clauses})
                       AND c.kb_name IN ({placeholders})
+                      {owner_clause}
                     LIMIT ?
                 """
-                params = [f"%{term}%" for term in terms] + names + [limit]
+                params = [
+                    *[f"%{term}%" for term in terms],
+                    *names,
+                    *owner_params,
+                    limit,
+                ]
                 cursor = await connection.execute(fallback_sql, params)
                 rows = await cursor.fetchall()
 
@@ -493,6 +617,9 @@ class KnowledgeService:
         query: str,
         names: list[str],
         limit: int,
+        *,
+        owner_id: str = "",
+        is_admin: bool = False,
     ) -> list[SearchHit]:
         if self.embedder is None:
             return []
@@ -503,6 +630,7 @@ class KnowledgeService:
             return []
 
         placeholders = ", ".join("?" for _ in names)
+        owner_clause, owner_params = self._owner_filter("b", owner_id, is_admin)
         sql = f"""
             SELECT
                 c.id AS chunk_id,
@@ -514,13 +642,15 @@ class KnowledgeService:
             FROM knowledge_chunk_vectors v
             JOIN knowledge_chunks c ON c.id = v.chunk_id
             JOIN knowledge_documents d ON d.id = c.document_id
+            JOIN knowledge_bases b ON b.name = c.kb_name
             WHERE v.model = ?
               AND c.kb_name IN ({placeholders})
+              {owner_clause}
         """
         async with self.database.connect() as connection:
             cursor = await connection.execute(
                 sql,
-                (self.embedder.model, *names),
+                (self.embedder.model, *names, *owner_params),
             )
             rows = await cursor.fetchall()
 
@@ -663,11 +793,22 @@ class KnowledgeService:
         return list(dict.fromkeys(terms))
 
     @staticmethod
+    def _owner_filter(
+        alias: str,
+        owner_id: str,
+        is_admin: bool,
+    ) -> tuple[str, tuple[str, ...]]:
+        if not owner_id or is_admin:
+            return "", ()
+        return f"AND {alias}.owner_id = ?", (owner_id,)
+
+    @staticmethod
     def _base_from_row(row: Any) -> KnowledgeBaseRecord:
         return KnowledgeBaseRecord(
             name=str(row["name"]),
             description=str(row["description"] or ""),
             provider=str(row["provider"] or "sqlite-fts"),
+            owner_id=str(row["owner_id"] or ""),
             created_at=float(row["created_at"]),
             updated_at=float(row["updated_at"]),
             is_default=bool(row["is_default"]),

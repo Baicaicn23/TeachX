@@ -9,6 +9,7 @@ class KnowledgeBaseRecord:
     name: str
     description: str = ""
     provider: str = "sqlite-fts"
+    owner_id: str = ""
     created_at: float = 0.0
     updated_at: float = 0.0
     is_default: bool = False

@@ -55,7 +55,13 @@ async def unified_turn_socket(websocket: WebSocket) -> None:
                 )
                 continue
             if command_type == "start_turn":
-                await _handle_start_turn(websocket, container, payload, user.id)
+                await _handle_start_turn(
+                    websocket,
+                    container,
+                    payload,
+                    user.id,
+                    user.is_admin,
+                )
                 continue
             if command_type in {"cancel_turn", "submit_user_reply", "user_input"}:
                 await _send(
@@ -83,6 +89,7 @@ async def _handle_start_turn(
     container: Any,
     payload: dict[str, Any],
     user_id: str,
+    is_admin: bool,
 ) -> None:
     try:
         command = StartTurnCommand.model_validate(payload)
@@ -95,7 +102,11 @@ async def _handle_start_turn(
         return
 
     sequence = 0
-    async for event in container.runtime.run_turn(command, user_id=user_id):
+    async for event in container.runtime.run_turn(
+        command,
+        user_id=user_id,
+        is_admin=is_admin,
+    ):
         sequence += 1
         event["seq"] = sequence
         event.setdefault("timestamp", time.time())
