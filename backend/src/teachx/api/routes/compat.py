@@ -148,3 +148,13 @@ async def partner_groups() -> list[object]:
 @router.get("/api/subagents/settings")
 async def subagent_settings() -> dict[str, object]:
     return {"connections": [], "enabled_backends": []}
+
+
+@router.get("/api/subagents/connections")
+async def subagent_connections() -> list[object]:
+    return []
+
+
+@router.get("/api/subagents/backends/options")
+async def subagent_backend_options() -> list[object]:
+    return []
