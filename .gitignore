@@ -27,4 +27,5 @@ data/*
 .env
 .env.*
 !.env.example
+!.env.docker.example
 !backend/.env.example
