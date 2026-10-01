@@ -1,64 +1,45 @@
-# TeachX
+# TeachX 开发路线
 
-TeachX is a web-first AI tutoring platform. It keeps the parts of DeepTutor
-that matter most for learning products:
+## P0 - 可运行基础版本
 
-- a streaming agent loop
-- model tool calling
-- reusable tutoring capabilities
-- knowledge-grounded answers
-- durable conversations
-- a polished Next.js interface
+- [x] 复用上游 Next.js 前端。
+- [x] 搭建 FastAPI 服务。
+- [x] 实现统一 WebSocket 回合协议。
+- [x] 实现 SQLite 会话持久化。
+- [x] 实现 Mock 模型和计算器工具。
+- [x] 完成浏览器端到端验证。
 
-The first milestone uses a mock model so the complete product path can run
-without an API key. Real OpenAI-compatible providers are configured through
-environment variables.
+## P1 - 真实辅导循环
 
-## Repository layout
+- [x] 实现 OpenAI 兼容流式 Provider。
+- [x] 保留一次性 `complete()` 接口。
+- [x] 实现能力模式专属提示词。
+- [x] 记录工具调用 ID、状态和耗时。
+- [x] 实现会话标题生成与本地兜底。
+- [x] 为流式文本和分片工具参数补测试。
+- [ ] 使用真实 API Key 完成供应商线上联调。
+- [ ] 补充断线恢复和流式中断测试。
 
-```text
-frontend/   Next.js 16 + React 19 web application
-backend/    FastAPI service and TeachX agent runtime
-docs/       Architecture and engineering notes
-data/       Local runtime data (ignored by Git)
-```
+## P2 - 知识库
 
-## Local development
+- [ ] 文档上传。
+- [ ] 文本提取和切分。
+- [ ] 关键词与向量混合检索。
+- [ ] 在聊天事件中返回引用来源。
+- [ ] 增加知识库管理页面。
 
-### Backend
+## P3 - 产品化
 
-```bash
-cd backend
-uv sync
-uv run uvicorn teachx.main:app --app-dir src --reload --port 8010
-```
+- [ ] 登录和权限。
+- [ ] PostgreSQL 持久化。
+- [ ] Docker 与一体化部署。
+- [ ] 运行指标和结构化日志。
+- [ ] 安全策略与附件限制。
 
-### Frontend
+## P4 - 简历与作品集
 
-```bash
-cd frontend
-cp .env.example .env.local
-npm install
-npm run dev
-```
-
-Open http://localhost:3000.
-
-## Model configuration
-
-The default provider is `mock`, which makes local development deterministic.
-To use an OpenAI-compatible endpoint:
-
-```bash
-export TEACHX_LLM_PROVIDER=openai
-export TEACHX_MODEL=gpt-4.1-mini
-export OPENAI_API_KEY=...
-export OPENAI_BASE_URL=...
-```
-
-## Status
-
-Milestone P0 is complete: the reused web UI, FastAPI service, WebSocket turn
-protocol, SQLite persistence, mock provider, and calculator tool work together
-end to end. The next milestone adds real streaming providers, richer tool traces,
-and capability-specific prompts.
+- [ ] CI 自动检查。
+- [ ] 截图和演示视频。
+- [ ] 在线演示环境。
+- [ ] 架构说明与性能数据。
+- [ ] 面向面试的项目介绍。

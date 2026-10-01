@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="当前状态" src="https://img.shields.io/badge/status-P0%20%E5%8F%AF%E8%BF%90%E8%A1%8C-brightgreen">
+  <img alt="当前状态" src="https://img.shields.io/badge/status-P1%20%E5%BC%80%E5%8F%91%E4%B8%AD-brightgreen">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.12-blue">
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.142-009688">
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black">
@@ -22,7 +22,7 @@ Web 项目。它保留了 AI 学习产品真正有价值的核心：流式 Agent
 
 ## 当前状态
 
-P0 阶段已经完成，并通过端到端验证。
+P0 已完成并通过端到端验证；P1 核心开发已经完成，正在等待真实供应商 API 联调。
 
 | 模块 | 状态 |
 | --- | --- |
@@ -33,10 +33,11 @@ P0 阶段已经完成，并通过端到端验证。
 | Agent Loop | 可用 |
 | 计算器工具调用 | 可用 |
 | Mock 模型 | 可用 |
-| OpenAI 兼容模型适配器 | 已实现，等待真实供应商集成测试 |
+| OpenAI 兼容模型适配器 | 已实现流式输出和工具参数拼接，等待真实供应商 API 联调 |
 
-下一阶段将加入真实 token 流式输出、更完整的工具调用轨迹、自动生成会话标题，
-以及不同能力模式的专属提示词。
+P1 的核心开发已经完成：`complete` 与 `stream` 双接口、真实 token 流式输出、
+工具参数分片拼接、能力模式提示词、会话标题生成和更完整的工具事件都已加入。
+真实模型的线上联调将在配置 API Key 后继续验证。
 
 ## 为什么使用 TeachX
 
@@ -128,12 +129,12 @@ export OPENAI_BASE_URL=https://api.openai.com/v1
 ## 当前可用功能
 
 - 基于 WebSocket 的流式回合事件
+- Mock 和 OpenAI 兼容模型的流式内容增量
 - 支持历史记录的聊天会话
 - 基础多轮上下文
-- 计算器工具调用
-- 能力目录：`chat`、`deep_solve` 和 `deep_question`
-- 用于本地开发和测试的确定性 Mock 模式
-- OpenAI 兼容模型适配器
+- 计算器工具调用，并记录调用 ID、状态和耗时
+- `chat`、`deep_solve`、`deep_question` 的专属提示词
+- 自动生成会话标题，并提供本地兜底标题
 - 原 DeepTutor 可选界面的兼容接口
 
 ## 项目结构
@@ -178,15 +179,27 @@ cd frontend
 npm run build
 ```
 
+## 技术教程
+
+面向基础薄弱读者的中文教程从这里开始：
+
+- [教程目录](docs/tutorials/README.md)
+- [00：如何阅读这个项目](docs/tutorials/00-如何阅读这个项目.md)
+- [01：一次提问的完整旅程](docs/tutorials/01-一次提问的完整旅程.md)
+- [02：从 `complete` 到 `stream`](docs/tutorials/02-从complete到stream.md)
+- [03：工具调用是怎么工作的](docs/tutorials/03-工具调用是怎么工作的.md)
+
 ## 开发路线
 
 | 阶段 | 范围 | 状态 |
 | --- | --- | --- |
 | P0 | 可运行的 Web 与后端垂直切片 | 已完成 |
-| P1 | 真实流式模型、工具轨迹、能力提示词 | 下一阶段 |
+| P1 | 真实流式模型、工具轨迹、能力提示词 | 核心已完成，待真实 API 联调 |
 | P2 | 知识库上传、检索与引用 | 计划中 |
 | P3 | 登录认证、PostgreSQL、部署 | 计划中 |
 | P4 | CI、截图、在线演示与简历文档 | 计划中 |
+
+真实供应商联调仍需配置 API Key，测试代码已经覆盖流式文本和分片工具参数。
 
 详细计划见 [docs/roadmap.md](docs/roadmap.md)。
 
