@@ -13,6 +13,7 @@ from teachx.auth.service import AuthService
 from teachx.config import get_settings
 from teachx.knowledge.embeddings import build_embedding_provider
 from teachx.knowledge.service import KnowledgeService
+from teachx.practice.service import PracticeService
 from teachx.providers import build_provider
 from teachx.runtime.engine import AgentRuntime
 from teachx.runtime.tools import build_default_registry
@@ -43,6 +44,7 @@ async def lifespan(app: FastAPI):
         max_file_bytes=settings.max_upload_bytes,
         embedder=embedder,
     )
+    practice = PracticeService(database)
     tools = build_default_registry(knowledge)
     provider = build_provider(settings)
     runtime = AgentRuntime(
@@ -57,6 +59,7 @@ async def lifespan(app: FastAPI):
         repository=repository,
         auth=auth,
         knowledge=knowledge,
+        practice=practice,
         provider=provider,
         tools=tools,
         runtime=runtime,

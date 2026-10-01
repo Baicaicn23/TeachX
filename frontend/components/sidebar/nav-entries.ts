@@ -2,6 +2,7 @@ import { LEARNING_HUB } from '@/lib/learning-routes'
 import {
   Bot,
   BookOpenCheck,
+  Brain,
   GraduationCap,
   HeartHandshake,
   House,
@@ -40,6 +41,13 @@ export const PRIMARY_NAV: NavEntry[] = [
     label: 'Learning records',
     icon: BookOpenCheck,
     tooltipKey: 'Review tutor feedback and your saved misunderstandings.',
+    requires: 'llm',
+  },
+  {
+    href: '/practice',
+    label: 'Practice',
+    icon: Brain,
+    tooltipKey: 'Turn your materials into recall practice and scheduled review.',
     requires: 'llm',
   },
   {

@@ -46,6 +46,38 @@ CREATE TABLE IF NOT EXISTS answer_feedback (
     UNIQUE(user_id, message_id)
 );
 
+CREATE TABLE IF NOT EXISTS practice_questions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    knowledge_base TEXT NOT NULL REFERENCES knowledge_bases(name) ON DELETE CASCADE,
+    source_chunk_id INTEGER REFERENCES knowledge_chunks(id) ON DELETE SET NULL,
+    prompt TEXT NOT NULL,
+    source_excerpt TEXT NOT NULL DEFAULT '',
+    created_at REAL NOT NULL,
+    UNIQUE(user_id, source_chunk_id)
+);
+
+CREATE TABLE IF NOT EXISTS practice_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    question_id INTEGER NOT NULL REFERENCES practice_questions(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    rating TEXT NOT NULL CHECK(rating IN ('again', 'hard', 'good', 'easy')),
+    interval_days INTEGER NOT NULL,
+    due_at REAL NOT NULL,
+    mastery_score INTEGER NOT NULL,
+    created_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS practice_progress (
+    user_id TEXT NOT NULL,
+    knowledge_base TEXT NOT NULL REFERENCES knowledge_bases(name) ON DELETE CASCADE,
+    mastery_score INTEGER NOT NULL DEFAULT 0,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    updated_at REAL NOT NULL,
+    PRIMARY KEY (user_id, knowledge_base)
+);
+
 CREATE INDEX IF NOT EXISTS idx_messages_session_created
 ON messages(session_id, created_at, id);
 
@@ -54,6 +86,15 @@ ON answer_feedback(user_id, updated_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_answer_feedback_session
 ON answer_feedback(session_id, message_id);
+
+CREATE INDEX IF NOT EXISTS idx_practice_questions_user
+ON practice_questions(user_id, knowledge_base, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_practice_attempts_question
+ON practice_attempts(question_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_practice_attempts_due
+ON practice_attempts(user_id, due_at);
 
 CREATE INDEX IF NOT EXISTS idx_sessions_updated
 ON sessions(updated_at DESC);
