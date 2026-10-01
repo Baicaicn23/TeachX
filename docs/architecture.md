@@ -97,6 +97,17 @@ Browser
 Compose 通过服务名 `api` 提供容器网络发现。SQLite 数据库和知识库原文保存在
 `/app/data`，通过命名 Volume 持久化。
 
+## 持续集成
+
+```text
+Push / Pull Request
+→ Backend lint + tests
+→ Frontend typecheck + production build
+→ Docker Compose build + smoke test
+```
+
+GitHub Actions 使用干净的 Ubuntu Runner，避免依赖开发者本机状态。
+
 ## 设计规则
 
 - WebSocket 协议是前端与后端之间的稳定产品接缝。

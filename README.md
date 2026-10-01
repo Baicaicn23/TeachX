@@ -12,6 +12,7 @@
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.142-009688">
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black">
   <img alt="许可证" src="https://img.shields.io/badge/license-Apache--2.0-blue">
+  <img alt="CI" src="https://github.com/Baicaicn23/TeachX/actions/workflows/ci.yml/badge.svg">
 </p>
 
 TeachX 是一个受 [DeepTutor](https://github.com/HKUDS/DeepTutor) 启发的独立
@@ -37,7 +38,8 @@ P0、P1、P2 已完成，P3 正在进行。当前已加入认证、会话与知�
 | 知识库 | 支持 TXT、Markdown、PDF 上传，FTS5、向量和 RRF 混合检索 |
 | 登录认证 | bcrypt、JWT HttpOnly Cookie、WebSocket 鉴权、会话按用户隔离 |
 | 资源授权 | 知识库按 owner_id 隔离，管理员可查看全部资源 |
-| 容器部署 | Dockerfile、Compose、Volume 和健康检查已配置，待具备 Docker 的环境实机验证 |
+| 容器部署 | Dockerfile、Compose、Volume 和健康检查已配置，由 GitHub Actions 实机验证 |
+| 持续集成 | 后端检查、前端构建和 Docker Compose Smoke Test |
 
 P1 的核心开发已经完成：`complete` 与 `stream` 双接口、真实 token 流式输出、
 工具参数分片拼接、能力模式提示词、会话标题生成和更完整的工具事件都已加入。
@@ -192,6 +194,7 @@ NEXT_PUBLIC_AUTH_ENABLED=true
 - Agent 检索工具继承当前用户权限
 - 后端和前端生产 Dockerfile
 - Docker Compose、持久化 Volume、健康检查和启动依赖
+- GitHub Actions 后端、前端和容器 Smoke Test
 - 原 DeepTutor 可选界面的兼容接口
 
 ## 项目结构
@@ -253,6 +256,7 @@ npm run build
 - [06：认证与权限](docs/tutorials/06-认证与权限.md)
 - [07：多用户数据隔离](docs/tutorials/07-多用户数据隔离.md)
 - [08：Docker 部署](docs/tutorials/08-Docker部署.md)
+- [09：CI 持续集成](docs/tutorials/09-CI持续集成.md)
 
 ## 开发路线
 
