@@ -1,130 +1,158 @@
 # TeachX 开发交接文档
 
-> 最后更新：2026-10-02  
-> 用途：新开 Codex 对话或更换开发者时，先读本文件恢复项目上下文。
+> 最后更新：2026-10-02
+>
+> 功能基线：`483dddb`；接手时使用 `git log -1` 查看最新提交。
+> 用途：新的 Codex Agent、开发者或贡献者恢复项目上下文，并直接继续开发。
 
-## 新对话第一条指令
+## 给下一个 Agent 的第一条指令
 
-可以把下面这段直接发给新对话：
+可以把下面这段直接发给新的 Codex 对话：
 
 ```text
-请先阅读 docs/HANDOFF.md、docs/roadmap.md、docs/architecture.md 和 README.md。
-这是一个已经持续开发中的真实项目，不要从零重做。
-先检查 git status 和最近提交，再从 roadmap 的当前焦点继续开发。
-大型功能完成后必须补中文教程、更新 README/roadmap，并提交推送。
+请先完整阅读 docs/HANDOFF.md、docs/roadmap.md、docs/architecture.md、
+README.md 和 docs/tutorials/README.md。
+
+这是一个持续开发中的真实项目，不要从零重做，也不要删除本地数据。
+先检查 git status、最近提交和当前验证结果，然后从 HANDOFF 的“下一步优先级”继续。
+
+开发规则：
+- 普通用户体验优先。
+- 管理员功能、Docker、PostgreSQL 暂缓。
+- 自动测试必须使用 Mock，不能消耗真实 API 额度。
+- 完成大型功能后补中文教程、更新 README/roadmap、浏览器验证、commit、push。
+- 不要输出、提交或写入文档任何 API Key / Auth Secret。
 ```
 
 ## 项目目标
 
-TeachX 是一个 Web 优先的 AI 学习平台。
+TeachX 是一个 Web 优先的 AI 学习平台：
 
-核心目标：
+- 浏览器聊天与流式回答。
+- Agent Loop 和工具调用。
+- 用户知识库、RAG 和来源引用。
+- 学习档案、个性化提示词和目标进度。
+- 回答反馈、错题、练习与复习。
+- 用户可连接 DeepSeek、OpenAI 或其他 OpenAI 兼容平台。
 
-- 复用 DeepTutor 的 Next.js 前端。
-- 重写一个更小、更清晰、可解释的 Python 后端。
-- 保留 Agent Loop、工具调用、流式输出、知识库和个性化学习。
-- 作为课设、作品集和简历项目持续开发。
-- 每个大型功能都有代码、测试、教程、Git 提交和路线图记录。
+项目定位是真实可演示、可解释、可继续扩展的作品集和课程项目，不是一次性 API 封装。
 
-项目暂时不做：
+当前明确暂缓：
 
 - 管理员用户管理。
-- Docker 实机部署。
+- Docker 实机构建。
 - PostgreSQL 迁移。
-- 复杂多用户后台。
+- 复杂插件市场。
 
-Docker 配置文件保留备用，但当前不投入时间。
+## 当前完成度
 
-## 当前技术栈
+截至 `483dddb`：
 
-```text
-前端：Next.js 16 + React 19 + TypeScript + Tailwind
-后端：Python 3.12 + FastAPI + Pydantic
-模型：Mock / OpenAI 兼容 Chat Completions
-数据库：SQLite
-检索：FTS5 + Embedding + RRF 混合排序
-认证：bcrypt + JWT + HttpOnly Cookie
-实时通信：WebSocket
-CI：GitHub Actions，后端检查和前端构建
-```
+- P0 Web 垂直切片：完成。
+- P1 流式 Agent Runtime：核心完成，DeepSeek Flash 已真实验证。
+- P2 知识库、FTS5、Embedding 接口和 RRF：代码完成，Embedding 仍主要使用 Mock。
+- P3 认证、用户隔离、个人资料：完成基础阶段。
+- U1 学习档案注入提示词：完成。
+- U2 聊天页个性化状态：完成。
+- U3 首次使用引导：完成。
+- U4 学习反馈与错题记录：完成。
+- U5 练习与复习模式：完成。
+- U6 对话中的学习目标：完成。
+- 用户级模型连接：完成。
+- DeepSeek Flash：真实 `/models`、流式文本、工具调用、浏览器聊天已验证。
 
-## 当前状态
+后端自动测试当前为 `30 passed`。前端生产构建为 `47` 条路由。
 
-截至最后更新：
+当前下一步是 **Q2：Agent 稳定性与费用控制**。
 
-- P0 Web 垂直切片完成。
-- P1 流式 Agent Runtime 核心完成。
-- P2 知识库和混合检索完成。
-- P3 认证、用户隔离和个人资料完成基础阶段。
-- U1 学习档案注入提示词完成。
-- U2 聊天页个性化状态完成。
-- U3 首次使用引导完成。
-- U4 学习反馈与错题记录完成。
-- U5 练习与复习模式完成。
-- U6 对话中的学习目标完成。
-- 普通用户核心学习闭环 U1～U6 已完成。
-- 用户级模型连接和 DeepSeek Flash 真实聊天已完成。
-- 当前下一步是 Q2：Agent 稳定性。
-- 后端测试 `30 passed`。
-- Git 工作区应保持干净。
-
-最近功能提交：
+## 最近提交
 
 ```text
+483dddb docs: add model connection tutorial
 17c516c feat: add user model connections
+5484b10 docs: add learning goal tutorial
 a5e12d9 feat: track learning goals in chat
+c38dbe1 docs: add practice and review tutorial
 f682cc1 feat: add knowledge-base practice and review
+143f40a docs: add learning feedback tutorial
 2c1f302 feat: add learning feedback and mistake records
+163da1b docs: add first-run onboarding guide
 abed83c feat: add first-run onboarding
-560cee9 docs: add chat personalization status tutorial
-f51bf41 feat: show personalization status in chat
-c9a109a docs: add personalization prompt tutorial
-7310470 feat: personalize tutor prompts from learner profiles
 ```
 
-## 仓库结构
+## 本地环境与敏感文件
+
+### `backend/.env`
+
+该文件被 Git 忽略，本地目前包含真实配置：
 
 ```text
-TeachX/
-├── backend/
-│   ├── src/teachx/
-│   │   ├── api/          HTTP、WebSocket、认证和兼容路由
-│   │   ├── auth/         用户、bcrypt、JWT、学习档案
-│   │   ├── knowledge/    文档提取、切块、FTS、Embedding、混合检索
-│   │   ├── providers/    Mock 和 OpenAI 兼容模型适配器
-│   │   ├── runtime/      Agent Loop、提示词、工具
-│   │   └── storage/      SQLite 和 Repository
-│   └── tests/
-├── frontend/             Next.js Web 前端
-├── docs/
-│   ├── HANDOFF.md        当前文件
-│   ├── roadmap.md        完整开发路线和迭代日志
-│   ├── architecture.md   稳定架构说明
-│   └── tutorials/        面向基础薄弱读者的中文教程
-├── scripts/
-│   ├── dev.sh            同时启动前后端
-│   └── check.sh          后端测试 + 前端类型检查
-└── compose.yaml          Docker 配置，当前暂缓
+TEACHX_LLM_PROVIDER=openai
+OPENAI_BASE_URL=https://api.deepseek.com/v1
+TEACHX_MODEL=deepseek-flash
+TEACHX_EMBEDDING_PROVIDER=mock
+TEACHX_AUTH_ENABLED=true
+TEACHX_AUTH_COOKIE_SECURE=false
 ```
 
-## 本地启动
+同时包含：
 
-默认认证关闭，使用 Mock 模型：
+- DeepSeek API Key。
+- 本地认证 Secret。
+
+不要把任何值打印到终端、聊天、README、HANDOFF 或提交中。修改 `TEACHX_AUTH_SECRET`
+会导致已保存的用户模型连接无法解密，用户必须重新填写 Key。
+
+### 本地演示账号
+
+演示账号存放在被 Git 忽略的文件：
+
+```text
+data/DEMO_ACCESS.txt
+```
+
+不要再把账号密码写进已跟踪文档。当前本地数据库包含：
+
+- 6 个演示会话。
+- 2 个知识库。
+- 5 份知识库文档。
+- 3 条反馈/误区记录。
+- 5 道练习题。
+- 3 次练习作答和掌握度。
+- 1 个已激活的 DeepSeek Flash 用户连接。
+
+重置前旧数据备份在：
+
+```text
+/tmp/teachx-reset-20261002-010800
+```
+
+`data/*` 已被 Git 忽略。不要在没有用户确认时删除 `data/teachx.db` 或知识库原文。
+
+## 一键启动
+
+正常本地运行：
 
 ```bash
 ./scripts/dev.sh
 ```
 
-浏览器访问：
+访问：
 
 ```text
-http://localhost:3000
+前端：http://localhost:3000
+后端：http://127.0.0.1:8010
 ```
 
-后端端口：
+当前本地 `.env` 会启用认证并使用 DeepSeek Flash。若只需要开发和界面测试，优先使用
+Mock，避免产生费用：
 
-```text
-http://127.0.0.1:8010
+```bash
+TEACHX_LLM_PROVIDER=mock \
+TEACHX_EMBEDDING_PROVIDER=mock \
+TEACHX_DATABASE_PATH=/tmp/teachx-mock.db \
+TEACHX_KNOWLEDGE_ROOT=/tmp/teachx-mock-knowledge \
+./scripts/dev.sh
 ```
 
 也可以分别启动：
@@ -141,40 +169,36 @@ npm ci
 npm run dev
 ```
 
-## 启用认证后的测试环境
-
-```bash
-NEXT_PUBLIC_AUTH_ENABLED=true \
-TEACHX_AUTH_ENABLED=true \
-TEACHX_AUTH_SECRET='至少32字节的测试Secret' \
-./scripts/dev.sh
-```
-
-注意：
-
-- 不要把真实 Secret 写进 Git。
-- 正式 HTTPS 部署时设置 `TEACHX_AUTH_COOKIE_SECURE=true`。
-- 本地测试账户保存在被 Git 忽略的 `data/teachx.db`。
-- 要获得全新用户环境，可以停止服务后删除本地 `data/teachx.db`。这会删除本地会话、用户和知识库元数据。
-
 ## 验证命令
 
-必须优先使用：
+项目标准检查：
 
 ```bash
 ./scripts/check.sh
 ```
 
-它执行：
+它会执行：
 
-- 后端 Ruff。
+- Ruff。
 - 后端 pytest。
 - 前端 TypeScript 检查。
 
-完整前端构建：
+`check.sh` 强制：
+
+```text
+TEACHX_LLM_PROVIDER=mock
+TEACHX_EMBEDDING_PROVIDER=mock
+```
+
+这样本地 `.env` 即使用真实付费模型，自动测试也不会消耗 API 额度。不要移除这两个覆盖。
+
+完整验证：
 
 ```bash
 cd frontend
+npm run architecture:check
+npm run i18n:parity
+npm run i18n:audit
 npm run build
 ```
 
@@ -186,40 +210,66 @@ typecheck passed
 47 Next.js routes built
 ```
 
-## 核心运行链路
+## 核心架构链路
+
+### 聊天
 
 ```text
 Next.js Chat UI
-→ /ws 统一回合协议
+→ /ws
 → FastAPI WebSocket
+→ 选择当前用户激活的模型连接
+→ OpenAICompatibleProvider 或平台默认 Provider
 → AgentRuntime
-→ Provider Adapter
 → ToolRegistry
 → SessionRepository
 ```
 
-知识检索：
+### 个性化
 
 ```text
-文档上传
-→ extractors 提取文本
-→ chunker 切块
-→ SQLite FTS5
-→ Embedding 向量
+用户学习档案
+→ AgentRuntime 每回合读取
+→ active 学习目标、进度、讲解风格进入系统提示词
+→ 已完成目标不注入
+→ done.personalization_applied
+```
+
+### 知识库
+
+```text
+上传
+→ 提取
+→ 切块
+→ FTS5 + Embedding
 → RRF 混合排序
 → knowledge_search
 → sources 事件
 ```
 
-个性化：
+### 练习
 
 ```text
-用户学习档案
-→ AgentRuntime 每回合读取
-→ 注入系统提示词
-→ 模型调整回答风格
-→ done.personalization_applied
+知识库文本片段
+→ practice_questions
+→ 用户开放题作答
+→ Again / Hard / Good / Easy
+→ practice_attempts + practice_progress
+→ 1 / 2 / 4 / 7 天后复习
 ```
+
+### 模型连接
+
+```text
+用户 Base URL + API Key + 默认模型
+→ Fernet 加密
+→ model_connections
+→ WebSocket 每回合读取 active 连接
+→ 临时创建 OpenAICompatibleProvider
+→ 传入 AgentRuntime.run_turn(provider=...)
+```
+
+没有个人 active 连接时，回退到 `.env` 平台默认 Provider。
 
 ## 关键代码文件
 
@@ -227,67 +277,48 @@ Next.js Chat UI
 
 | 文件 | 职责 |
 | --- | --- |
-| `backend/src/teachx/main.py` | 应用装配和生命周期 |
-| `backend/src/teachx/runtime/engine.py` | Agent Loop、工具循环、个性化和标题 |
-| `backend/src/teachx/runtime/prompts.py` | 系统提示词与个性化注入 |
-| `backend/src/teachx/runtime/tools.py` | 工具接口、计算器、知识检索 |
-| `backend/src/teachx/providers/base.py` | Provider 接口 |
-| `backend/src/teachx/providers/openai_compat.py` | OpenAI 流式和工具调用 |
-| `backend/src/teachx/knowledge/service.py` | 知识库权限、存储和混合检索 |
-| `backend/src/teachx/knowledge/embeddings.py` | Mock/OpenAI Embedding |
-| `backend/src/teachx/auth/service.py` | 用户、密码、JWT、学习档案 |
-| `backend/src/teachx/practice/service.py` | 知识库出题、复习调度和掌握度 |
-| `backend/src/teachx/model_connections/service.py` | 用户模型连接、Key 加密和 Provider 切换 |
-| `backend/src/teachx/api/routes/ws.py` | WebSocket 回合协议 |
-| `backend/src/teachx/api/routes/profile.py` | 用户资料、头像和学习档案 API |
+| `backend/src/teachx/main.py` | 应用装配、数据库、Auth、Knowledge、Practice、ModelConnection、Runtime |
+| `backend/src/teachx/runtime/engine.py` | Agent Loop、工具循环、Provider 覆盖、个性化、标题 |
+| `backend/src/teachx/runtime/prompts.py` | 系统提示词、学习档案和目标注入 |
+| `backend/src/teachx/runtime/tools.py` | 工具注册、计算器、知识检索 |
+| `backend/src/teachx/providers/openai_compat.py` | OpenAI 兼容流式和工具参数拼接 |
+| `backend/src/teachx/storage/database.py` | SQLite schema 与迁移 |
+| `backend/src/teachx/storage/repository.py` | 会话、消息、反馈和事件持久化 |
+| `backend/src/teachx/auth/service.py` | 用户、JWT、学习档案 |
+| `backend/src/teachx/knowledge/service.py` | 知识库提取、索引、权限和混合检索 |
+| `backend/src/teachx/practice/service.py` | 出题、复习队列、掌握度 |
+| `backend/src/teachx/model_connections/service.py` | 用户连接、Key 加密、Provider 创建 |
+
+### 路由
+
+```text
+backend/src/teachx/api/routes/auth.py
+backend/src/teachx/api/routes/profile.py
+backend/src/teachx/api/routes/ws.py
+backend/src/teachx/api/routes/sessions.py
+backend/src/teachx/api/routes/knowledge.py
+backend/src/teachx/api/routes/learning.py
+backend/src/teachx/api/routes/practice.py
+backend/src/teachx/api/routes/model_connections.py
+```
 
 ### 前端
 
 | 文件 | 职责 |
 | --- | --- |
-| `frontend/features/chat/components/ChatWorkspace.tsx` | 主聊天页面装配 |
-| `frontend/components/chat/home/ChatComposer.tsx` | 聊天输入框 |
-| `frontend/components/chat/home/PersonalizationStatus.tsx` | 聊天页个性化状态条 |
-| `frontend/app/(utility)/profile/page.tsx` | 个人主页、头像和学习档案 |
-| `frontend/app/(auth)/onboarding/page.tsx` | 三步首次使用引导 |
-| `frontend/components/auth/OnboardingGate.tsx` | 未完成引导用户的工作区门禁 |
-| `frontend/lib/onboarding-api.ts` | 引导状态、完成状态和首份资料上传 |
-| `frontend/features/chat/messages/AnswerFeedbackActions.tsx` | 有帮助、不清楚和误区反馈操作 |
-| `frontend/app/(utility)/learning-records/page.tsx` | 学习记录筛选、回看、继续追问和删除 |
-| `frontend/lib/answer-feedback-api.ts` | 回答反馈 API 客户端 |
-| `frontend/app/(workspace)/practice/page.tsx` | 练习队列、自评、复习和掌握度页面 |
-| `frontend/lib/practice-review-api.ts` | 练习与复习 API 客户端 |
-| `frontend/components/chat/home/LearningGoalStatus.tsx` | 当前学习目标、进度、完成和调整状态条 |
-| `frontend/app/(utility)/model-connections/page.tsx` | DeepSeek、OpenAI 和兼容平台连接管理 |
-| `frontend/lib/model-connections-api.ts` | 模型连接 API 客户端 |
-| `frontend/features/chat/ChatStateAdapter.tsx` | WebSocket 状态机和消息展示 |
-
-## 当前用户可用功能
-
-- 注册、登录、退出。
-- 用户会话隔离。
-- 知识库所有权隔离。
-- 图标头像和图片头像。
-- 学习档案。
-- 首次使用引导，可跳过并上传可选资料。
-- 回答反馈和学习误区记录，可筛选、回看、继续追问和删除。
-- 从知识库生成开放题，保存作答并安排复习。
-- 按知识库查看练习掌握度。
-- 聊天页查看当前学习目标、进度和完成状态。
-- 修改学习目标后自动重新激活，已完成目标不再注入提示词。
-- 保存、测试和激活个人 DeepSeek、OpenAI 或自定义 OpenAI 兼容模型连接。
-- 用户 API Key 加密存储，客户端接口不返回明文或密文。
-- 个性化开关。
-- 聊天页个性化状态条。
-- 流式聊天。
-- 计算器工具调用。
-- 知识库上传。
-- FTS5、向量和 RRF 混合检索。
-- 来源引用事件。
+| `frontend/features/chat/components/ChatWorkspace.tsx` | 聊天主装配和状态条 |
+| `frontend/features/chat/messages/ChatMessageList.tsx` | 消息、反馈操作和动作区 |
+| `frontend/features/chat/ChatStateAdapter.tsx` | WebSocket 状态机 |
+| `frontend/app/(auth)/onboarding/page.tsx` | 首次引导 |
+| `frontend/app/(utility)/profile/page.tsx` | 资料、目标、进度和个性化 |
+| `frontend/app/(utility)/learning-records/page.tsx` | 反馈与误区记录 |
+| `frontend/app/(workspace)/practice/page.tsx` | 练习与复习 |
+| `frontend/app/(utility)/model-connections/page.tsx` | 用户模型连接 |
+| `frontend/components/sidebar/nav-entries.ts` | 导航入口 |
 
 ## 当前 API 概览
 
-### 认证
+### 认证与引导
 
 ```text
 GET    /api/auth/status
@@ -299,6 +330,19 @@ GET    /api/auth/onboarding
 POST   /api/auth/onboarding/complete
 ```
 
+### 资料与个性化
+
+```text
+GET    /api/auth/profile
+PUT    /api/auth/profile
+GET    /api/auth/personalization
+GET    /api/auth/profile/learner-profile
+PUT    /api/auth/profile/learner-profile
+PUT    /api/auth/profile/avatar
+DELETE /api/auth/profile/avatar
+GET    /api/auth/avatar/{user_id}
+```
+
 ### 学习记录
 
 ```text
@@ -308,7 +352,7 @@ PUT    /api/learning/feedback/{message_id}
 DELETE /api/learning/records/{feedback_id}
 ```
 
-### 练习与复习
+### 练习
 
 ```text
 GET    /api/practice/summary
@@ -330,43 +374,22 @@ POST   /api/model-connections/{connection_id}/activate
 DELETE /api/model-connections/{connection_id}
 ```
 
-### 个人资料
+## 数据库所有权
 
 ```text
-GET    /api/auth/profile
-PUT    /api/auth/profile
-GET    /api/auth/personalization
-GET    /api/auth/profile/learner-profile
-PUT    /api/auth/profile/learner-profile
-PUT    /api/auth/profile/avatar
-DELETE /api/auth/profile/avatar
-GET    /api/auth/avatar/{user_id}
+sessions.user_id
+knowledge_bases.owner_id
+answer_feedback.user_id
+practice_questions.user_id
+practice_attempts.user_id
+practice_progress.user_id
+model_connections.user_id
 ```
 
-### 会话
+用户数据必须始终遵守这些边界。管理员跨用户能力目前只应用于已存在的资源查询路径，
+新增接口不要默认给普通用户开放全量数据。
 
-```text
-GET    /api/sessions
-GET    /api/sessions/search
-GET    /api/sessions/{session_id}
-PATCH  /api/sessions/{session_id}
-DELETE /api/sessions/{session_id}
-GET    /api/sessions/{session_id}/messages/{message_id}/events
-```
-
-### 知识库
-
-```text
-GET    /api/knowledge-bases
-POST   /api/knowledge-bases
-GET    /api/knowledge-bases/{kb_name}
-GET    /api/knowledge-bases/{kb_name}/files
-POST   /api/knowledge-bases/{kb_name}/upload
-GET    /api/knowledge-bases/{kb_name}/search
-POST   /api/knowledge-bases/{kb_name}/reindex
-```
-
-## 数据库表
+## 当前主要表
 
 ```text
 users
@@ -378,189 +401,243 @@ knowledge_chunks
 knowledge_chunks_fts
 knowledge_chunk_vectors
 answer_feedback
-```
-
-用户数据：
-
-```text
-users.avatar
-users.learner_profile
-users.personalization_enabled
-users.onboarding_completed
-users.learner_profile.learning_goal_progress
-users.learner_profile.learning_goal_status
-answer_feedback.user_id
 practice_questions
 practice_attempts
 practice_progress
 model_connections
 ```
 
-会话所有权：
+用户档案关键字段：
 
 ```text
-sessions.user_id
+users.avatar
+users.learner_profile
+users.personalization_enabled
+users.onboarding_completed
+users.learner_profile.learning_goal
+users.learner_profile.learning_goal_progress
+users.learner_profile.learning_goal_status
 ```
 
-知识库所有权：
+## 已完成功能的使用路径
+
+### 新用户
 
 ```text
-knowledge_bases.owner_id
+/register
+→ 自动登录
+→ /onboarding
+→ 学习阶段、目标、讲解偏好、可选资料
+→ /chat
 ```
 
-## 当前路线图和下一步
+### 个性化与目标
 
-完整内容在：
+```text
+/chat
+→ 顶部显示个性化状态
+→ 显示当前学习目标、进度
+→ 可完成目标
+→ /profile 调整目标、进度和状态
+```
 
-- `docs/roadmap.md`
-- `docs/tutorials/README.md`
+### 反馈与误区
 
-当前焦点是 Q2：Agent 稳定性。
+```text
+/chat 回答下方
+→ 有帮助 / 不清楚 / 记录我的误区
+→ /learning-records 查看、筛选、删除
+→ 再弄懂一次，将误区写入 /chat 草稿
+```
 
-### U3 完成情况
+### 练习
 
-新用户注册后，在 3 分钟内完成基础学习档案。
+```text
+/practice
+→ 选择知识库
+→ 生成开放题
+→ 作答
+→ Again / Hard / Good / Easy
+→ 更新掌握度和下次复习
+```
 
-- 注册后自动登录并进入 `/onboarding`。
-- 学习阶段、目标、讲解偏好和可选资料已完成。
-- 新用户可跳过，旧用户迁移后默认已完成。
-- 完成状态持久化，工作区门禁生效。
-- 桌面和移动端浏览器路径已验证。
-- 中文教程、README、roadmap 和提交已同步。
+### 模型连接
 
-教程：[13：首次使用引导](tutorials/13-首次使用引导.md)
+```text
+/model-connections
+→ DeepSeek / OpenAI / 自定义 OpenAI 兼容平台
+→ 测试连接和模型列表
+→ 保存并激活
+→ 后续 WebSocket 回合使用该用户模型
+```
 
-提交：`abed83c`
+## 已完成的真实联调
 
-### U4 完成情况
+DeepSeek 控制台返回：
 
-让用户可以标记回答是否有帮助，并把错题和概念误区保存为后续可引用的学习记录。
+```text
+deepseek-flash
+deepseek-v4-pro
+```
 
-- 已回答支持“有帮助”“不清楚”和“记录我的误区”。
-- 学习记录按用户隔离，支持筛选、回看、删除和继续追问。
-- 误区可通过 workspace draft 带回聊天输入框。
-- 桌面浏览器完成端到端验证。
-- 教程、README、roadmap 和提交已同步。
+已验证：
 
-教程：[14：学习反馈与错题记录](tutorials/14-学习反馈与错题记录.md)
+- `/models` 正常。
+- DeepSeek Flash 流式文本正常。
+- calculator 工具调用正常，参数为 `{"expression": "19 * 23"}`。
+- 浏览器保存并激活个人连接后，真实聊天成功。
+- API 响应不返回用户明文或密文 Key。
 
-提交：`2c1f302`
+当前仍没有验证：
 
-### U5 完成情况
+- 真实 Embedding 供应商和混合检索。
+- 不同 OpenAI 兼容平台的所有错误格式。
+- 网络断开、超时、限流和部分流中断。
 
-根据知识库生成练习题，保存答案和判定结果，并形成复习计划与掌握度变化。
+## 下一步优先级
 
-- 已从知识库片段生成开放式回忆题。
-- 新题和到期题进入统一练习队列。
-- Again、Hard、Good、Easy 会更新掌握度并安排 1、2、4、7 天复习。
-- 用户和知识库数据隔离。
-- 浏览器验证了上传、生成、作答、8% 掌握度和下次复习日期。
-- 教程、README、roadmap 和提交已同步。
+### P0：费用控制和真实 Provider 稳定性
 
-教程：[15：练习与复习模式](tutorials/15-练习与复习模式.md)
+这是下一位 Agent 最应该先做的内容。
 
-提交：`f682cc1`
+现状风险：
 
-### U6 完成情况
+- 当前 Provider 没有记录真实 token usage。
+- 没有 `max_tokens` 输出上限。
+- 历史消息和知识片段每轮都会重新发送。
+- 新会话第一轮会额外调用一次模型生成标题。
+- Agent Loop 最多 6 轮。
+- 没有用户级每日预算或超预算自动回退。
 
-把学习目标从档案字段扩展为对话中的持续推进：显示进度、每轮提示当前目标，并支持完成或调整目标。
+建议实现顺序：
 
-- 学习档案已保存目标进度和 active/completed 状态。
-- 聊天页显示当前目标、进度，并支持一键完成和转到个人主页调整。
-- 目标和进度进入系统提示词，已完成目标不再注入。
-- 修改目标文字会自动重新激活。
-- 浏览器验证完成、进度更新、重新激活和持久化。
-- 教程、README、roadmap 和提交已同步。
+1. 捕获并持久化 prompt/completion/total tokens。
+2. 在消息底部显示每次和会话累计 token。
+3. 增加 `max_output_tokens` 配置并传给 Provider。
+4. 限制历史消息数量和工具返回长度。
+5. 允许关闭模型标题生成，默认使用本地截断标题。
+6. 增加用户每日预算和超限行为：阻止真实调用或回退 Mock。
+7. 为超时、429、5xx 和断流增加明确错误事件。
 
-教程：[16：对话中的学习目标](tutorials/16-对话中的学习目标.md)
+验收要求：
 
-提交：`a5e12d9`
+- 自动测试仍强制 Mock。
+- 新增费用逻辑必须有正常路径、超预算路径和失败路径测试。
+- 浏览器能看见本回合 token 和预算状态。
+- 不泄露 Key、不把成本单位写死为单一供应商价格。
 
-### Q1 完成情况
+### P1：真实 Embedding
 
-使用真实 API Key 验证 OpenAI 兼容流式文本、工具调用和 Embedding。没有真实 Key 时，
-继续补确定性的契约、超时和错误映射测试，不声称完成线上联调。
+- 使用支持 Embeddings 的平台进行真实联调。
+- 验证维度、失败回退和模型升级后的 reindex。
+- 保持 DeepSeek Chat 与 Embedding 配置相互独立。
 
-- 已使用 DeepSeek Flash 验证 `/models`、流式文本和 calculator 工具调用。
-- 已实现用户级模型连接、加密凭据和浏览器真实聊天。
-- Embedding 真实联调、完整超时和错误映射仍待补强。
+### P2：Q3 测试
 
-教程：[17：用户模型连接与多平台](tutorials/17-用户模型连接与多平台.md)
+- 前端关键页面测试。
+- API 合同测试。
+- 覆盖率报告。
+- 真实边界场景的确定性 Mock 测试。
 
-提交：`17c516c`
+### P3：Q4 展示材料
 
-### Q2 下一步
+- 截图和演示视频。
+- 在线演示。
+- 架构图、时序图。
+- 简历项目描述和面试问答。
 
-提高 Agent Loop 在真实供应商下的稳定性：工具重试、上下文预算、敏感参数脱敏、最大
-回合提示和断线恢复。
+## 已知限制与坑
 
-## 当前已知限制
-
-- 真实 OpenAI/Embedding API 尚未使用用户 API Key 完成线上联调。
-- Docker 配置未实机构建。
-- PostgreSQL 未迁移。
-- 管理员用户管理暂缓。
-- 知识库名称目前全局唯一，不同用户不能使用同名知识库。
-- 原前端仍包含大量尚未接通的页面，当前只保证已实现路径可用。
-- 学习档案设置页主要入口已放到 `/profile`，不要依赖隐藏的 learner-only Settings 页面。
-- 个性化和知识检索都可关闭，但权限最终由后端判断。
+- 新用户首次注册自动登录，第一用户是管理员。
+- 旧用户 `onboarding_completed` 迁移默认已完成；新用户明确写为未完成。
+- 学习目标修改文字时自动 active，完成状态不会被旧值覆盖。
+- 已完成学习目标不进入提示词，但其他档案字段继续存在。
+- 知识库名称目前全局唯一，不同用户不能创建同名知识库。
+- 原 DeepTutor 前端仍有大量非当前主线的页面，只保证 HANDOFF 中列出的路径完成验证。
+- 旧的 `/learning/practice` 页面保留兼容；新的普通用户练习入口是 `/practice`。
+- 模型连接只用于聊天 Provider，不用于 Embedding。
+- `TEACHX_AUTH_SECRET` 变化会使已有用户模型 Key 无法解密。
+- 当前没有费用预算保护，真实模型测试要少打、短问、优先 Mock。
+- Docker、PostgreSQL 和管理员用户管理不是当前阻塞项。
 
 ## 开发规则
 
-每次大型功能必须完成：
+每个大型功能必须完成：
 
 ```text
-功能代码
+明确用户场景
+→ 代码
 → 自动测试
 → 浏览器或 API 验证
 → 中文教程
-→ 更新 README（如影响用户）
+→ 更新 README（影响用户时）
 → 更新 docs/roadmap.md
 → commit
 → push
 ```
 
-Git 提交建议：
-
-```text
-feat: 功能实现
-docs: 教程和路线图
-```
-
 不要：
 
-- 每个小改动都更新 README。
-- 把 Secret 提交到 Git。
-- 在没有验证时写“已经完成生产验证”。
-- 跳过浏览器验证。
-- 重写已经稳定工作的 Agent Loop。
+- 在没有验证的情况下声称真实模型或线上环境完成。
+- 在自动测试中读取本地真实 API Key。
+- 输出或提交任何 Secret。
+- 重写已经稳定的 Agent Loop。
+- 删除用户本地数据库或知识库原文。
+- 继续投入 Docker 或管理员功能，除非用户明确恢复。
 
-## 当前 Git
+## Git 和提交规范
 
-远端：
+每个大型功能至少分两类提交：
 
 ```text
-git@github.com:Baicaicn23/TeachX.git
+feat: 功能代码、测试、迁移
+docs: 教程、README、交接和路线图
 ```
 
-查看状态：
+推送前至少执行：
+
+```bash
+./scripts/check.sh
+git diff --check
+git status --short
+```
+
+前端路由或依赖发生变化时再执行：
+
+```bash
+cd frontend
+npm run architecture:check
+npm run i18n:parity
+npm run i18n:audit
+npm run build
+```
+
+## 最新上手动作
+
+新 Agent 接手后的最短路径：
 
 ```bash
 git status --short --branch
-git log --oneline -10
+git log --oneline -12
+cat docs/HANDOFF.md
+cat docs/roadmap.md
+./scripts/check.sh
 ```
 
-推送：
+然后：
 
-```bash
-git push
+1. 如果任务是费用控制，从“P0：费用控制和真实 Provider 稳定性”开始。
+2. 如果任务是展示材料，从“P3：Q4 展示材料”开始。
+3. 如果不确定，先向用户确认优先级，不要默认重做已完成功能。
+
+## 新对话推荐开场语
+
+```text
+你正在接手 TeachX。请先阅读 docs/HANDOFF.md、docs/roadmap.md、
+docs/architecture.md、README.md 和 docs/tutorials/README.md。
+
+不要从零重做，不要删除本地数据或 Secret，不要让自动测试调用真实模型。
+先检查 git status、最近提交和 ./scripts/check.sh，然后从当前最高优先级继续。
+
+大型功能必须补中文教程、更新 README/roadmap、浏览器验证、commit、push。
 ```
-
-## 新对话推荐工作顺序
-
-1. 阅读本文件。
-2. 阅读 `docs/roadmap.md`。
-3. 执行 `git status` 和 `git log -5`。
-4. 执行 `./scripts/check.sh`。
-5. 从 Q2 开始，不要重做已验证功能。
-6. 先在浏览器验证现状，再开始修改。
