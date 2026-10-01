@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -27,6 +28,8 @@ class LearnerProfileUpdate(BaseModel):
     age: int | None = Field(default=None, ge=3, le=120)
     grade_level: str | None = Field(default=None, max_length=64)
     learning_goal: str | None = Field(default=None, max_length=160)
+    learning_goal_progress: int | None = Field(default=None, ge=0, le=100)
+    learning_goal_status: Literal["active", "completed"] | None = None
     curriculum: str | None = Field(default=None, max_length=64)
     language: str | None = Field(default=None, max_length=32)
     reading_level: str | None = Field(default=None, max_length=64)

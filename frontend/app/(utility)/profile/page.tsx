@@ -198,7 +198,7 @@ export default function ProfilePage() {
       setLearnerProfile((current) => ({
         ...current,
         [key]:
-          key === "age"
+          key === "age" || key === "learning_goal_progress"
             ? value
               ? Number(value)
               : undefined
@@ -487,6 +487,7 @@ export default function ProfilePage() {
                     ["age", "Age"],
                     ["grade_level", "Grade level"],
                     ["learning_goal", "Learning goal"],
+                    ["learning_goal_progress", "Learning goal progress"],
                     ["curriculum", "Curriculum"],
                     ["language", "Preferred language"],
                     ["reading_level", "Reading level"],
@@ -496,9 +497,25 @@ export default function ProfilePage() {
                   <label key={key} className="grid gap-1.5 text-sm">
                     <span className="text-[var(--muted-foreground)]">{t(label)}</span>
                     <input
-                      type={key === "age" ? "number" : "text"}
-                      min={key === "age" ? 3 : undefined}
-                      max={key === "age" ? 120 : undefined}
+                      type={
+                        key === "age" || key === "learning_goal_progress"
+                          ? "number"
+                          : "text"
+                      }
+                      min={
+                        key === "age"
+                          ? 3
+                          : key === "learning_goal_progress"
+                            ? 0
+                            : undefined
+                      }
+                      max={
+                        key === "age"
+                          ? 120
+                          : key === "learning_goal_progress"
+                            ? 100
+                            : undefined
+                      }
                       value={learnerProfile[key] ?? ""}
                       onChange={(event) => updateLearnerProfile(key, event.target.value)}
                       className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)] outline-none focus:ring-2 focus:ring-[var(--primary)]"
@@ -506,6 +523,23 @@ export default function ProfilePage() {
                   </label>
                 ))}
               </div>
+              {learnerProfile.learning_goal ? (
+                <label className="mt-4 grid gap-1.5 text-sm sm:max-w-xs">
+                  <span className="text-[var(--muted-foreground)]">
+                    {t("Learning goal status")}
+                  </span>
+                  <select
+                    value={learnerProfile.learning_goal_status ?? "active"}
+                    onChange={(event) =>
+                      updateLearnerProfile("learning_goal_status", event.target.value)
+                    }
+                    className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)] outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                  >
+                    <option value="active">{t("Active")}</option>
+                    <option value="completed">{t("Completed")}</option>
+                  </select>
+                </label>
+              ) : null}
               <button
                 type="button"
                 onClick={() => void handleSaveLearnerProfile()}

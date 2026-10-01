@@ -35,6 +35,7 @@ _PROFILE_LABELS = {
     "age": "年龄",
     "grade_level": "年级",
     "learning_goal": "学习目标",
+    "learning_goal_progress": "学习目标进度",
     "curriculum": "课程体系",
     "language": "偏好语言",
     "reading_level": "阅读水平",
@@ -64,13 +65,22 @@ def build_system_prompt(
 
 def _build_profile_block(profile: dict[str, Any]) -> str:
     lines: list[str] = []
+    goal_completed = profile.get("learning_goal_status") == "completed"
     for key, label in _PROFILE_LABELS.items():
+        if key == "learning_goal_progress":
+            continue
+        if key == "learning_goal" and goal_completed:
+            continue
         raw_value = profile.get(key)
         if raw_value is None:
             continue
         value = " ".join(str(raw_value).split())[:160]
         if not value:
             continue
+        if key == "learning_goal":
+            progress = profile.get("learning_goal_progress")
+            if progress is not None:
+                value = f"{value}（进度 {progress}%）"
         lines.append(f"- {label}：{value[:160]}")
     if not lines:
         return ""

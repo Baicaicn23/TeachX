@@ -1,4 +1,9 @@
 {
+  "Learning goal progress": "学习目标进度",
+  "Adjust": "调整",
+  "Current goal": "当前目标",
+  "Goal completed": "目标已完成",
+  "Learning goal status": "学习目标状态",
   "Answer saved. Review scheduled for {{date}}; mastery is now {{score}}%.": "回答已保存。下次复习安排在 {{date}}，当前掌握度为 {{score}}%。",
   "Average mastery": "平均掌握度",
   "Choose a knowledge base and TeachX will turn its material into recall questions.": "选择知识库，TeachX 会把其中的资料转化成回忆练习。",

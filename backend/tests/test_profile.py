@@ -53,6 +53,7 @@ def test_profile_avatar_and_learner_profile(tmp_path: Path) -> None:
                     "age": 19,
                     "grade_level": "大一",
                     "learning_goal": "掌握线性代数",
+                    "learning_goal_progress": 40,
                     "language": "zh",
                     "explanation_style": "先例子后原理",
                 },
@@ -60,6 +61,30 @@ def test_profile_avatar_and_learner_profile(tmp_path: Path) -> None:
             assert learner.status_code == 200
             assert learner.json()["learner_profile"]["age"] == 19
             assert learner.json()["learner_profile"]["learning_goal"] == "掌握线性代数"
+            assert learner.json()["learner_profile"]["learning_goal_progress"] == 40
+
+            completed = client.put(
+                "/api/auth/profile/learner-profile",
+                json={
+                    "grade_level": "大一",
+                    "learning_goal": "掌握线性代数",
+                    "learning_goal_progress": 100,
+                    "learning_goal_status": "completed",
+                },
+            )
+            assert completed.status_code == 200
+            assert completed.json()["learner_profile"]["learning_goal_status"] == "completed"
+
+            reactivated = client.put(
+                "/api/auth/profile/learner-profile",
+                json={
+                    "grade_level": "大一",
+                    "learning_goal": "掌握概率论",
+                    "learning_goal_progress": 0,
+                },
+            )
+            assert reactivated.status_code == 200
+            assert reactivated.json()["learner_profile"]["learning_goal_status"] == "active"
             assert (
                 client.get("/api/auth/profile/learner-profile").json()["learner_profile"][
                     "grade_level"

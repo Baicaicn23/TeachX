@@ -11,6 +11,8 @@ export interface LearnerProfile {
   age?: number;
   grade_level?: string;
   learning_goal?: string;
+  learning_goal_progress?: number;
+  learning_goal_status?: "active" | "completed";
   curriculum?: string;
   language?: string;
   reading_level?: string;

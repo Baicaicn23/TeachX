@@ -1,4 +1,9 @@
 {
+  "Learning goal progress": "Learning goal progress",
+  "Adjust": "Adjust",
+  "Current goal": "Current goal",
+  "Goal completed": "Goal completed",
+  "Learning goal status": "Learning goal status",
   "Answer saved. Review scheduled for {{date}}; mastery is now {{score}}%.": "Answer saved. Review scheduled for {{date}}; mastery is now {{score}}%.",
   "Average mastery": "Average mastery",
   "Choose a knowledge base and TeachX will turn its material into recall questions.": "Choose a knowledge base and TeachX will turn its material into recall questions.",

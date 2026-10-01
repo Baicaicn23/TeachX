@@ -190,6 +190,13 @@ class AuthService:
         user_id: str,
         profile: dict[str, Any],
     ) -> UserRecord | None:
+        current = await self.get_user(user_id)
+        if current is None:
+            return None
+        previous_goal = str((current.learner_profile or {}).get("learning_goal") or "")
+        next_goal = str(profile.get("learning_goal") or "")
+        if next_goal and next_goal != previous_goal:
+            profile = {**profile, "learning_goal_status": "active"}
         async with self.database.connect() as connection:
             await connection.execute(
                 "UPDATE users SET learner_profile = ?, updated_at = ? WHERE id = ?",

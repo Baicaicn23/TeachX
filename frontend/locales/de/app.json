@@ -1,4 +1,9 @@
 {
+  "Learning goal progress": "Fortschritt des Lernziels",
+  "Adjust": "Anpassen",
+  "Current goal": "Aktuelles Ziel",
+  "Goal completed": "Ziel abgeschlossen",
+  "Learning goal status": "Status des Lernziels",
   "Answer saved. Review scheduled for {{date}}; mastery is now {{score}}%.": "Antwort gespeichert. Die nächste Wiederholung ist am {{date}}; der Wissensstand liegt jetzt bei {{score}} %.",
   "Average mastery": "Durchschnittlicher Wissensstand",
   "Choose a knowledge base and TeachX will turn its material into recall questions.": "Wähle eine Wissensbasis; TeachX macht daraus Abrufaufgaben.",
