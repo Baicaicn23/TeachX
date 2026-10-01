@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" role="img" aria-label="TeachX">
+  <defs>
+    <linearGradient id="banner-gradient" x1="40" y1="20" x2="170" y2="180" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563EB"/>
+      <stop offset="0.55" stop-color="#0EA5E9"/>
+      <stop offset="1" stop-color="#14B8A6"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="28" width="144" height="144" rx="42" fill="url(#banner-gradient)"/>
+  <path d="M61 74C74.5 66.1 87 66.1 98.3 74V137C87 129 74.5 129 61 137V74Z" fill="white" fill-opacity="0.95"/>
+  <path d="M135 74C121.5 66.1 109 66.1 97.7 74V137C109 129 121.5 129 135 137V74Z" fill="white" fill-opacity="0.82"/>
+  <path d="M98 74V137" stroke="#0F172A" stroke-opacity="0.28" stroke-width="5" stroke-linecap="round"/>
+  <path d="M138 48L143 61L156 66L143 71L138 84L133 71L120 66L133 61L138 48Z" fill="#FDE68A"/>
+  <text x="202" y="118" fill="currentColor" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="82" font-weight="700" letter-spacing="-3">TeachX</text>
+  <text x="206" y="151" fill="currentColor" fill-opacity="0.58" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="500" letter-spacing="1.2">AI LEARNING STUDIO</text>
+</svg>

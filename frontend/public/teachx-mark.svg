@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="TeachX">
+  <defs>
+    <linearGradient id="teachx-gradient" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563EB"/>
+      <stop offset="0.55" stop-color="#0EA5E9"/>
+      <stop offset="1" stop-color="#14B8A6"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="17" fill="url(#teachx-gradient)"/>
+  <path d="M17 21.5C22.6 18.4 27.6 18.4 32 21.5V46C27.6 42.9 22.6 42.9 17 46V21.5Z" fill="white" fill-opacity="0.95"/>
+  <path d="M47 21.5C41.4 18.4 36.4 18.4 32 21.5V46C36.4 42.9 41.4 42.9 47 46V21.5Z" fill="white" fill-opacity="0.82"/>
+  <path d="M32 21.5V46" stroke="#0F172A" stroke-opacity="0.28" stroke-width="2" stroke-linecap="round"/>
+  <path d="M48 14L49.6 18.4L54 20L49.6 21.6L48 26L46.4 21.6L42 20L46.4 18.4L48 14Z" fill="#FDE68A"/>
+</svg>
