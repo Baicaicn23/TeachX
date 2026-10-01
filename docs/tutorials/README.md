@@ -28,6 +28,7 @@
 | [08](08-Docker部署.md) | Image、Container、Volume、Compose 和健康检查 | `Dockerfile`、`compose.yaml` |
 | [09](09-CI持续集成.md) | GitHub Actions、测试和构建 | `.github/workflows/ci.yml` |
 | [10](10-个人资料与学习档案.md) | 头像、资料校验、学习偏好和用户隐私 | `auth/service.py`、`api/routes/profile.py` |
+| [11](11-个性化提示词.md) | 学习档案注入、开启关闭、注入防护和提示词测试 | `runtime/prompts.py`、`runtime/engine.py` |
 
 ## 项目路线图
 
