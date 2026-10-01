@@ -38,6 +38,49 @@ ON messages(session_id, created_at, id);
 
 CREATE INDEX IF NOT EXISTS idx_sessions_updated
 ON sessions(updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS knowledge_bases (
+    name TEXT PRIMARY KEY,
+    description TEXT NOT NULL DEFAULT '',
+    provider TEXT NOT NULL DEFAULT 'sqlite-fts',
+    is_default INTEGER NOT NULL DEFAULT 0,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kb_name TEXT NOT NULL REFERENCES knowledge_bases(name) ON DELETE CASCADE,
+    filename TEXT NOT NULL,
+    relative_path TEXT NOT NULL,
+    mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    content TEXT NOT NULL DEFAULT '',
+    chunk_count INTEGER NOT NULL DEFAULT 0,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    UNIQUE(kb_name, relative_path)
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_chunks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id INTEGER NOT NULL REFERENCES knowledge_documents(id) ON DELETE CASCADE,
+    kb_name TEXT NOT NULL REFERENCES knowledge_bases(name) ON DELETE CASCADE,
+    chunk_index INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    character_count INTEGER NOT NULL DEFAULT 0,
+    metadata TEXT NOT NULL DEFAULT '{}',
+    UNIQUE(document_id, chunk_index)
+);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_documents_kb
+ON knowledge_documents(kb_name, relative_path);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_kb
+ON knowledge_chunks(kb_name, document_id, chunk_index);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_chunks_fts
+USING fts5(content, chunk_id UNINDEXED, kb_name UNINDEXED, tokenize='unicode61');
 """
 
 

@@ -10,6 +10,7 @@ from teachx.api.container import ApplicationContainer
 from teachx.api.router import api_router
 from teachx.api.routes.ws import router as ws_router
 from teachx.config import get_settings
+from teachx.knowledge.service import KnowledgeService
 from teachx.providers import build_provider
 from teachx.runtime.engine import AgentRuntime
 from teachx.runtime.tools import build_default_registry
@@ -23,7 +24,12 @@ async def lifespan(app: FastAPI):
     database = Database(settings.resolved_database_path())
     await database.initialize()
     repository = SessionRepository(database)
-    tools = build_default_registry()
+    knowledge = KnowledgeService(
+        database,
+        settings.resolved_knowledge_root(),
+        max_file_bytes=settings.max_upload_bytes,
+    )
+    tools = build_default_registry(knowledge)
     provider = build_provider(settings)
     runtime = AgentRuntime(
         provider=provider,
@@ -34,6 +40,7 @@ async def lifespan(app: FastAPI):
     app.state.container = ApplicationContainer(
         settings=settings,
         repository=repository,
+        knowledge=knowledge,
         provider=provider,
         tools=tools,
         runtime=runtime,

@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from teachx.knowledge.service import KnowledgeService
 from teachx.providers.mock import MockProvider
 from teachx.runtime.engine import AgentRuntime
 from teachx.runtime.tools import build_default_registry
@@ -15,9 +16,10 @@ async def test_runtime_persists_tool_using_turn(tmp_path: Path) -> None:
     database = Database(tmp_path / "test.db")
     await database.initialize()
     repository = SessionRepository(database)
+    knowledge = KnowledgeService(database, tmp_path / "knowledge")
     runtime = AgentRuntime(
         provider=MockProvider(),
-        tools=build_default_registry(),
+        tools=build_default_registry(knowledge),
         repository=repository,
     )
     command = StartTurnCommand(

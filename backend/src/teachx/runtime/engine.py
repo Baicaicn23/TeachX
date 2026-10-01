@@ -14,7 +14,7 @@ from teachx.providers.base import (
     ToolCall,
 )
 from teachx.runtime.prompts import PROMPT_VERSION, build_system_prompt
-from teachx.runtime.tools import ToolRegistry
+from teachx.runtime.tools import ToolContext, ToolRegistry
 from teachx.schemas import SessionMessage, StartTurnCommand
 from teachx.storage.repository import SessionRepository
 
@@ -72,8 +72,14 @@ class AgentRuntime:
         }
 
         messages = self._build_messages(command, history, user_message)
-        enabled_tools = ["calculator"] if command.tools is None else command.tools
+        enabled_tools = ["calculator"] if command.tools is None else list(command.tools)
+        if command.knowledge_bases and "knowledge_search" not in enabled_tools:
+            enabled_tools.append("knowledge_search")
         tool_schemas = self.tools.schemas(enabled_tools)
+        tool_context = ToolContext(
+            session_id=session_id,
+            knowledge_bases=tuple(command.knowledge_bases),
+        )
         saved_events: list[dict[str, Any]] = []
         final_content_parts: list[str] = []
         finish_reason = "stop"
@@ -134,7 +140,11 @@ class AgentRuntime:
                         yield yield_event
 
                         started_at = time.perf_counter()
-                        tool_result = await self.tools.execute(call.name, call.arguments)
+                        tool_result = await self.tools.execute(
+                            call.name,
+                            call.arguments,
+                            context=tool_context,
+                        )
                         duration_ms = round(
                             (time.perf_counter() - started_at) * 1000,
                             2,
@@ -157,6 +167,24 @@ class AgentRuntime:
                         )
                         saved_events.append(result_event)
                         yield result_event
+
+                        sources = (tool_result.metadata or {}).get("sources")
+                        if isinstance(sources, list) and sources:
+                            sources_event = self._event(
+                                "sources",
+                                session_id,
+                                turn_id,
+                                command.capability,
+                                content=f"找到 {len(sources)} 条相关资料",
+                                metadata={
+                                    "call_id": call.id,
+                                    "tool": call.name,
+                                    "sources": sources,
+                                },
+                            )
+                            saved_events.append(sources_event)
+                            yield sources_event
+
                         messages.append(
                             {
                                 "role": "tool",

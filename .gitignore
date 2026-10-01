@@ -20,10 +20,8 @@ frontend/test-results/
 frontend/.env.local
 
 # Runtime data
-data/*.db
-data/*.db-*
-data/attachments/
-data/uploads/
+data/*
+!data/.gitkeep
 
 # Secrets
 .env

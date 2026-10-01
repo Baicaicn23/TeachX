@@ -27,23 +27,46 @@ class MockProvider(BaseProvider):
         tools: list[dict[str, Any]],
     ) -> LLMResult:
         latest_user = self._latest_content(messages, "user")
-        latest_tool = self._latest_content(messages, "tool")
+        latest_tool = self._latest_tool(messages)
         if latest_tool:
-            return LLMResult(
-                content=(
-                    f"计算结果已经得到：{latest_tool}。\n\n这次回答由 TeachX 的工具调用链路生成。"
-                ),
-                finish_reason="stop",
-            )
+            tool_name, tool_content = latest_tool
+            if tool_name == "knowledge_search":
+                if "没有找到" in tool_content:
+                    content = "当前知识库中没有找到足够相关的资料，请换一种问法或补充文档。"
+                else:
+                    preview = tool_content[:600]
+                    content = (
+                        "根据检索到的知识库资料，可以得到以下信息：\n\n"
+                        f"{preview}\n\n"
+                        "以上片段已附带来源信息；如果原文较长，可以继续追问具体部分。"
+                    )
+            else:
+                content = (
+                    f"计算结果已经得到：{tool_content}。\n\n这次回答由 TeachX 的工具调用链路生成。"
+                )
+            return LLMResult(content=content, finish_reason="stop")
 
         expression = self._find_expression(latest_user)
-        if expression and any(tool["function"]["name"] == "calculator" for tool in tools):
+        tool_names = {tool["function"]["name"] for tool in tools}
+        if expression and "calculator" in tool_names:
             return LLMResult(
                 tool_calls=[
                     ToolCall(
                         id="mock-calculator-1",
                         name="calculator",
                         arguments={"expression": expression},
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+
+        if "knowledge_search" in tool_names and self._needs_knowledge_search(latest_user):
+            return LLMResult(
+                tool_calls=[
+                    ToolCall(
+                        id="mock-knowledge-1",
+                        name="knowledge_search",
+                        arguments={"query": latest_user, "limit": 5},
                     )
                 ],
                 finish_reason="tool_calls",
@@ -83,6 +106,18 @@ class MockProvider(BaseProvider):
         for chunk in self._chunks(result.content):
             yield ContentDelta(chunk)
         yield StreamFinished(result)
+
+    @staticmethod
+    def _latest_tool(messages: list[dict[str, Any]]) -> tuple[str, str] | None:
+        for item in reversed(messages):
+            if item.get("role") == "tool":
+                return str(item.get("name") or "tool"), str(item.get("content") or "")
+        return None
+
+    @staticmethod
+    def _needs_knowledge_search(text: str) -> bool:
+        markers = ("知识库", "资料", "文档", "原文", "来源", "根据资料", "检索")
+        return any(marker in text for marker in markers) or "?" in text or "？" in text
 
     @staticmethod
     def _latest_content(messages: list[dict[str, Any]], role: str) -> str:

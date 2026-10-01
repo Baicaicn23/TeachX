@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
     database_path: Path = Field(default=Path("data/teachx.db"))
+    knowledge_root: Path = Field(default=Path("data/knowledge"))
+    max_upload_bytes: int = 20 * 1024 * 1024
 
     llm_provider: str = "mock"
     model: str = "gpt-4.1-mini"
@@ -27,11 +29,16 @@ class Settings(BaseSettings):
     temperature: float = 0.2
     max_agent_rounds: int = 6
 
-    def resolved_database_path(self) -> Path:
-        path = self.database_path
+    def _resolve_project_path(self, path: Path) -> Path:
         if not path.is_absolute():
             path = Path(__file__).resolve().parents[3] / path
         return path.resolve()
+
+    def resolved_database_path(self) -> Path:
+        return self._resolve_project_path(self.database_path)
+
+    def resolved_knowledge_root(self) -> Path:
+        return self._resolve_project_path(self.knowledge_root)
 
 
 @lru_cache
