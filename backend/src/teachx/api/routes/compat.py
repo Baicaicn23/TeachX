@@ -78,16 +78,6 @@ async def workspace_resources() -> dict[str, list[object]]:
     return {"skills": [], "mcp": [], "knowledge_bases": []}
 
 
-@router.get("/api/auth/status")
-async def auth_status() -> dict[str, object]:
-    return {
-        "enabled": False,
-        "authenticated": True,
-        "is_admin": True,
-        "username": "Local learner",
-    }
-
-
 @router.get("/api/system/update")
 async def app_update() -> dict[str, object]:
     return {

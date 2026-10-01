@@ -8,6 +8,8 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
 from teachx.api.dependencies import get_ws_container
+from teachx.auth.models import LOCAL_USER
+from teachx.auth.service import InvalidToken
 from teachx.schemas import StartTurnCommand
 
 router = APIRouter(tags=["turn-runtime"])
@@ -15,8 +17,19 @@ router = APIRouter(tags=["turn-runtime"])
 
 @router.websocket("/ws")
 async def unified_turn_socket(websocket: WebSocket) -> None:
-    await websocket.accept()
     container = get_ws_container(websocket)
+    user = LOCAL_USER
+    if container.settings.auth_enabled:
+        token = websocket.cookies.get(container.settings.auth_cookie_name)
+        try:
+            authenticated = await container.auth.user_from_token(token)
+        except InvalidToken:
+            authenticated = None
+        if authenticated is None:
+            await websocket.close(code=4401, reason="authentication required")
+            return
+        user = authenticated
+    await websocket.accept()
     try:
         while True:
             raw = await websocket.receive_text()
@@ -42,7 +55,7 @@ async def unified_turn_socket(websocket: WebSocket) -> None:
                 )
                 continue
             if command_type == "start_turn":
-                await _handle_start_turn(websocket, container, payload)
+                await _handle_start_turn(websocket, container, payload, user.id)
                 continue
             if command_type in {"cancel_turn", "submit_user_reply", "user_input"}:
                 await _send(
@@ -65,7 +78,12 @@ async def unified_turn_socket(websocket: WebSocket) -> None:
         return
 
 
-async def _handle_start_turn(websocket: WebSocket, container: Any, payload: dict[str, Any]) -> None:
+async def _handle_start_turn(
+    websocket: WebSocket,
+    container: Any,
+    payload: dict[str, Any],
+    user_id: str,
+) -> None:
     try:
         command = StartTurnCommand.model_validate(payload)
     except ValidationError as exc:
@@ -77,7 +95,7 @@ async def _handle_start_turn(websocket: WebSocket, container: Any, payload: dict
         return
 
     sequence = 0
-    async for event in container.runtime.run_turn(command):
+    async for event in container.runtime.run_turn(command, user_id=user_id):
         sequence += 1
         event["seq"] = sequence
         event.setdefault("timestamp", time.time())

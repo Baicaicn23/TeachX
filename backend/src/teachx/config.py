@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     embedding_provider: str = "mock"
     embedding_model: str = "text-embedding-3-small"
 
+    auth_enabled: bool = False
+    auth_secret: str = "dev-only-change-this-secret-before-production"
+    auth_cookie_name: str = "dt_token"
+    auth_cookie_secure: bool = False
+    auth_token_ttl_minutes: int = 1440
+
     def _resolve_project_path(self, path: Path) -> Path:
         if not path.is_absolute():
             path = Path(__file__).resolve().parents[3] / path

@@ -35,12 +35,18 @@ class AgentRuntime:
         self.repository = repository
         self.max_rounds = max_rounds
 
-    async def run_turn(self, command: StartTurnCommand) -> AsyncIterator[dict[str, Any]]:
+    async def run_turn(
+        self,
+        command: StartTurnCommand,
+        *,
+        user_id: str = "",
+    ) -> AsyncIterator[dict[str, Any]]:
         command.capability = command.capability or "chat"
         fallback_title = self._title_from_prompt(command.content)
         session_id = await self.repository.ensure_session(
             command.session_id,
             title=fallback_title,
+            user_id=user_id,
         )
         turn_id = uuid.uuid4().hex
         history = await self.repository.get_messages(session_id)

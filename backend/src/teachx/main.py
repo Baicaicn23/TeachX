@@ -9,6 +9,7 @@ from teachx import __version__
 from teachx.api.container import ApplicationContainer
 from teachx.api.router import api_router
 from teachx.api.routes.ws import router as ws_router
+from teachx.auth.service import AuthService
 from teachx.config import get_settings
 from teachx.knowledge.embeddings import build_embedding_provider
 from teachx.knowledge.service import KnowledgeService
@@ -25,6 +26,11 @@ async def lifespan(app: FastAPI):
     database = Database(settings.resolved_database_path())
     await database.initialize()
     repository = SessionRepository(database)
+    auth = AuthService(
+        database,
+        secret=settings.auth_secret,
+        token_ttl_minutes=settings.auth_token_ttl_minutes,
+    )
     embedder = build_embedding_provider(
         provider=settings.embedding_provider,
         model=settings.embedding_model,
@@ -48,6 +54,7 @@ async def lifespan(app: FastAPI):
     app.state.container = ApplicationContainer(
         settings=settings,
         repository=repository,
+        auth=auth,
         knowledge=knowledge,
         provider=provider,
         tools=tools,

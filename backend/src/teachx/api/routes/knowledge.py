@@ -6,13 +6,18 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
+from teachx.api.auth_dependencies import require_user
 from teachx.api.container import ApplicationContainer
 from teachx.api.dependencies import get_container
 from teachx.knowledge.extractors import SUPPORTED_EXTENSIONS
 from teachx.knowledge.models import KnowledgeBaseRecord
 from teachx.knowledge.service import KnowledgeError
 
-router = APIRouter(prefix="/api/knowledge-bases", tags=["knowledge"])
+router = APIRouter(
+    prefix="/api/knowledge-bases",
+    tags=["knowledge"],
+    dependencies=[Depends(require_user)],
+)
 
 
 @router.get("")

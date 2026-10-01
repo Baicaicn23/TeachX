@@ -12,6 +12,7 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL DEFAULT '',
     title TEXT NOT NULL,
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL,
@@ -38,6 +39,16 @@ ON messages(session_id, created_at, id);
 
 CREATE INDEX IF NOT EXISTS idx_sessions_updated
 ON sessions(updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user',
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    last_login_at REAL NULL
+);
 
 CREATE TABLE IF NOT EXISTS knowledge_bases (
     name TEXT PRIMARY KEY,
@@ -105,7 +116,30 @@ class Database:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         async with aiosqlite.connect(self.path) as connection:
             await connection.executescript(SCHEMA)
+            await self._ensure_column(
+                connection,
+                table="sessions",
+                column="user_id",
+                definition="TEXT NOT NULL DEFAULT ''",
+            )
+            await connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_sessions_user_updated "
+                "ON sessions(user_id, updated_at DESC)"
+            )
             await connection.commit()
+
+    @staticmethod
+    async def _ensure_column(
+        connection: aiosqlite.Connection,
+        *,
+        table: str,
+        column: str,
+        definition: str,
+    ) -> None:
+        cursor = await connection.execute(f"PRAGMA table_info({table})")
+        columns = {str(row[1]) for row in await cursor.fetchall()}
+        if column not in columns:
+            await connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
     @asynccontextmanager
     async def connect(self) -> AsyncIterator[aiosqlite.Connection]:

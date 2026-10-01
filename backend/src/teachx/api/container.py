@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from teachx.auth.service import AuthService
 from teachx.config import Settings
 from teachx.knowledge.service import KnowledgeService
 from teachx.providers.base import BaseProvider
@@ -14,6 +15,7 @@ from teachx.storage.repository import SessionRepository
 class ApplicationContainer:
     settings: Settings
     repository: SessionRepository
+    auth: AuthService
     knowledge: KnowledgeService
     provider: BaseProvider
     tools: ToolRegistry

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from teachx.api.routes import (
+    auth,
     capabilities,
     compat,
     health,
@@ -11,6 +12,7 @@ from teachx.api.routes import (
 )
 
 api_router = APIRouter()
+api_router.include_router(auth.router)
 api_router.include_router(health.router)
 api_router.include_router(capabilities.router)
 api_router.include_router(compat.router)
