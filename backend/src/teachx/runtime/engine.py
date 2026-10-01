@@ -6,30 +6,21 @@ import uuid
 from collections.abc import AsyncIterator
 from typing import Any
 
-from teachx.providers.base import BaseProvider, ToolCall
+from teachx.providers.base import (
+    BaseProvider,
+    ContentDelta,
+    LLMResult,
+    StreamFinished,
+    ToolCall,
+)
+from teachx.runtime.prompts import PROMPT_VERSION, build_system_prompt
 from teachx.runtime.tools import ToolRegistry
 from teachx.schemas import SessionMessage, StartTurnCommand
 from teachx.storage.repository import SessionRepository
 
-SYSTEM_PROMPTS = {
-    "chat": (
-        "你是 TeachX，一名耐心、严谨的 AI 学习导师。"
-        "先判断学习者真正卡在哪里，再用清晰的步骤回答。"
-        "需要计算时调用工具，不要凭空心算。"
-    ),
-    "deep_solve": (
-        "你是 TeachX 的解题模式。先拆解题目，再分步骤推理。"
-        "需要算术时调用 calculator 工具。最后给出答案和易错点。"
-    ),
-    "deep_question": (
-        "你是 TeachX 的出题模式。根据用户要求生成有梯度、可检查的练习题。"
-        "题目应覆盖理解、应用和迁移三个层次。"
-    ),
-}
-
 
 class AgentRuntime:
-    """Execute one TeachX turn as a streaming tool-using agent loop."""
+    """执行一次支持流式输出和工具调用的 TeachX 回合。"""
 
     def __init__(
         self,
@@ -46,10 +37,14 @@ class AgentRuntime:
 
     async def run_turn(self, command: StartTurnCommand) -> AsyncIterator[dict[str, Any]]:
         command.capability = command.capability or "chat"
-        title = self._title_from_prompt(command.content)
-        session_id = await self.repository.ensure_session(command.session_id, title=title)
+        fallback_title = self._title_from_prompt(command.content)
+        session_id = await self.repository.ensure_session(
+            command.session_id,
+            title=fallback_title,
+        )
         turn_id = uuid.uuid4().hex
         history = await self.repository.get_messages(session_id)
+        is_first_turn = not history
         parent_message_id = history[-1].id if history else None
         user_message = await self.repository.add_message(
             session_id=session_id,
@@ -80,29 +75,70 @@ class AgentRuntime:
         enabled_tools = ["calculator"] if command.tools is None else command.tools
         tool_schemas = self.tools.schemas(enabled_tools)
         saved_events: list[dict[str, Any]] = []
-        final_content = ""
+        final_content_parts: list[str] = []
         finish_reason = "stop"
+        rounds_used = 0
+        tool_call_count = 0
 
         try:
             for round_index in range(self.max_rounds):
-                result = await self.provider.complete(messages, tool_schemas)
-                finish_reason = result.finish_reason
+                rounds_used = round_index + 1
+                result: LLMResult | None = None
+                round_content = ""
 
+                async for item in self.provider.stream(messages, tool_schemas):
+                    if isinstance(item, ContentDelta):
+                        round_content += item.content
+                        final_content_parts.append(item.content)
+                        event = self._event(
+                            "content",
+                            session_id,
+                            turn_id,
+                            command.capability,
+                            content=item.content,
+                            metadata={
+                                "round": round_index + 1,
+                                "call_kind": "agent_loop_round",
+                                "answer_visible": True,
+                            },
+                        )
+                        saved_events.append(event)
+                        yield event
+                    elif isinstance(item, StreamFinished):
+                        result = item.result
+
+                if result is None:
+                    raise RuntimeError("模型流没有返回最终结果")
+
+                finish_reason = result.finish_reason
                 if result.tool_calls:
                     messages.append(self._assistant_tool_message(result.content, result.tool_calls))
                     for call in result.tool_calls:
-                        call_event = self._event(
+                        tool_call_count += 1
+                        yield_event = self._event(
                             "tool_call",
                             session_id,
                             turn_id,
                             command.capability,
                             content=f"调用工具：{call.name}",
-                            metadata={"tool": call.name, "arguments": call.arguments},
+                            metadata={
+                                "call_id": call.id,
+                                "call_kind": "tool",
+                                "call_state": "running",
+                                "tool": call.name,
+                                "arguments": call.arguments,
+                                "round": round_index + 1,
+                            },
                         )
-                        saved_events.append(call_event)
-                        yield call_event
+                        saved_events.append(yield_event)
+                        yield yield_event
 
+                        started_at = time.perf_counter()
                         tool_result = await self.tools.execute(call.name, call.arguments)
+                        duration_ms = round(
+                            (time.perf_counter() - started_at) * 1000,
+                            2,
+                        )
                         result_event = self._event(
                             "tool_result",
                             session_id,
@@ -110,8 +146,12 @@ class AgentRuntime:
                             command.capability,
                             content=tool_result.content,
                             metadata={
+                                "call_id": call.id,
+                                "call_kind": "tool",
+                                "call_state": "complete",
                                 "tool": call.name,
                                 "success": tool_result.success,
+                                "duration_ms": duration_ms,
                                 **(tool_result.metadata or {}),
                             },
                         )
@@ -127,23 +167,60 @@ class AgentRuntime:
                         )
                     continue
 
-                final_content = result.content
-                for chunk in self._chunks(final_content):
+                # 兼容没有产生增量、只在最终结果中返回文本的模型适配器。
+                if not round_content and result.content:
+                    final_content_parts.append(result.content)
                     event = self._event(
                         "content",
                         session_id,
                         turn_id,
                         command.capability,
-                        content=chunk,
-                        metadata={"round": round_index},
+                        content=result.content,
+                        metadata={
+                            "round": round_index + 1,
+                            "call_kind": "llm_final_response",
+                            "answer_visible": True,
+                        },
                     )
                     saved_events.append(event)
                     yield event
                 break
 
+            final_content = "".join(final_content_parts).strip()
             if not final_content:
                 finish_reason = "max_rounds"
                 final_content = "本轮推理达到最大工具调用轮数，请缩小问题范围后重试。"
+                fallback_event = self._event(
+                    "content",
+                    session_id,
+                    turn_id,
+                    command.capability,
+                    content=final_content,
+                    metadata={
+                        "round": rounds_used,
+                        "call_kind": "llm_final_response",
+                        "answer_visible": True,
+                    },
+                )
+                saved_events.append(fallback_event)
+                yield fallback_event
+
+            final_title = fallback_title
+            if is_first_turn:
+                final_title = await self._generate_title(
+                    command.content,
+                    final_content,
+                    fallback_title,
+                )
+                await self.repository.rename_session(session_id, final_title)
+                yield {
+                    "type": "session_meta",
+                    "source": "runtime",
+                    "content": "",
+                    "session_id": session_id,
+                    "turn_id": turn_id,
+                    "metadata": {"title": final_title},
+                }
 
             assistant_message = await self.repository.add_message(
                 session_id=session_id,
@@ -151,13 +228,19 @@ class AgentRuntime:
                 content=final_content,
                 capability=command.capability,
                 events=saved_events,
-                metadata={"finish_reason": finish_reason, "turn_id": turn_id},
+                metadata={
+                    "finish_reason": finish_reason,
+                    "turn_id": turn_id,
+                    "prompt_version": PROMPT_VERSION,
+                    "rounds_used": rounds_used,
+                    "tool_call_count": tool_call_count,
+                },
                 parent_message_id=user_message.id,
             )
             yield {
                 "type": "stage_end",
                 "source": command.capability,
-                "stage": "responding",
+                "stage": "exploring",
                 "content": "",
                 "session_id": session_id,
                 "turn_id": turn_id,
@@ -168,7 +251,12 @@ class AgentRuntime:
                 "content": final_content,
                 "session_id": session_id,
                 "turn_id": turn_id,
-                "metadata": {"finish_reason": finish_reason},
+                "metadata": {
+                    "finish_reason": finish_reason,
+                    "rounds_used": rounds_used,
+                    "tool_call_count": tool_call_count,
+                    "prompt_version": PROMPT_VERSION,
+                },
             }
             yield {
                 "type": "done",
@@ -180,7 +268,9 @@ class AgentRuntime:
                     "status": "completed",
                     "user_message_id": user_message.id,
                     "assistant_message_id": assistant_message.id,
-                    "title": title,
+                    "title": final_title,
+                    "rounds_used": rounds_used,
+                    "tool_call_count": tool_call_count,
                 },
             }
         except Exception as exc:
@@ -190,7 +280,11 @@ class AgentRuntime:
                 turn_id,
                 command.capability,
                 content=str(exc),
-                metadata={"status": "failed", "turn_terminal": True, "retryable": True},
+                metadata={
+                    "status": "failed",
+                    "turn_terminal": True,
+                    "retryable": True,
+                },
             )
             yield failed_event
             yield {
@@ -212,7 +306,10 @@ class AgentRuntime:
         history: list[SessionMessage],
         user_message: SessionMessage,
     ) -> list[dict[str, Any]]:
-        system = SYSTEM_PROMPTS.get(command.capability, SYSTEM_PROMPTS["chat"])
+        system = build_system_prompt(
+            command.capability or "chat",
+            command.language or "zh",
+        )
         messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
         for message in history:
             if message.role == "system":
@@ -220,6 +317,42 @@ class AgentRuntime:
             messages.append({"role": message.role, "content": message.content})
         messages.append({"role": "user", "content": user_message.content})
         return messages
+
+    async def _generate_title(
+        self,
+        user_content: str,
+        assistant_content: str,
+        fallback: str,
+    ) -> str:
+        """使用模型生成短标题，失败时保留稳定的本地标题。"""
+
+        if getattr(self.provider, "name", "") == "mock":
+            return fallback
+        try:
+            result = await self.provider.complete(
+                [
+                    {
+                        "role": "system",
+                        "content": (
+                            "你是会话标题生成器。只输出一个不超过 18 个汉字的标题，"
+                            "不要引号、不要句号、不要解释。"
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"用户问题：{user_content}\n"
+                            f"助手回答：{assistant_content[:1200]}\n"
+                            "请生成标题。"
+                        ),
+                    },
+                ],
+                [],
+            )
+            title = result.content.strip().splitlines()[0].strip("“”\"'。 ")
+            return title[:32] or fallback
+        except Exception:
+            return fallback
 
     @staticmethod
     def _assistant_tool_message(
@@ -241,10 +374,6 @@ class AgentRuntime:
                 for call in tool_calls
             ],
         }
-
-    @staticmethod
-    def _chunks(text: str, size: int = 18) -> list[str]:
-        return [text[index : index + size] for index in range(0, len(text), size)] or [""]
 
     @staticmethod
     def _title_from_prompt(content: str) -> str:

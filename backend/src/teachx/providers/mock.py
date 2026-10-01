@@ -1,15 +1,23 @@
 from __future__ import annotations
 
 import re
+from collections.abc import AsyncIterator
 from typing import Any
 
-from teachx.providers.base import LLMResult, ToolCall
+from teachx.providers.base import (
+    BaseProvider,
+    ContentDelta,
+    LLMResult,
+    ProviderEvent,
+    StreamFinished,
+    ToolCall,
+)
 
 _MATH_PATTERN = re.compile(r"(?<!\w)(-?\d+(?:\.\d+)?\s*[+\-*/]\s*-?\d+(?:\.\d+)?)")
 
 
-class MockProvider:
-    """Deterministic provider used for local development and tests."""
+class MockProvider(BaseProvider):
+    """用于本地开发和测试的确定性模型实现。"""
 
     name = "mock"
 
@@ -18,22 +26,8 @@ class MockProvider:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
     ) -> LLMResult:
-        latest_user = next(
-            (
-                str(item.get("content") or "")
-                for item in reversed(messages)
-                if item["role"] == "user"
-            ),
-            "",
-        )
-        latest_tool = next(
-            (
-                str(item.get("content") or "")
-                for item in reversed(messages)
-                if item["role"] == "tool"
-            ),
-            "",
-        )
+        latest_user = self._latest_content(messages, "user")
+        latest_tool = self._latest_content(messages, "tool")
         if latest_tool:
             return LLMResult(
                 content=(
@@ -80,7 +74,32 @@ class MockProvider:
             )
         return LLMResult(content=content, finish_reason="stop")
 
+    async def stream(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+    ) -> AsyncIterator[ProviderEvent]:
+        result = await self.complete(messages, tools)
+        for chunk in self._chunks(result.content):
+            yield ContentDelta(chunk)
+        yield StreamFinished(result)
+
+    @staticmethod
+    def _latest_content(messages: list[dict[str, Any]], role: str) -> str:
+        return next(
+            (
+                str(item.get("content") or "")
+                for item in reversed(messages)
+                if item.get("role") == role
+            ),
+            "",
+        )
+
     @staticmethod
     def _find_expression(text: str) -> str | None:
         match = _MATH_PATTERN.search(text)
         return match.group(1) if match else None
+
+    @staticmethod
+    def _chunks(text: str, size: int = 12) -> list[str]:
+        return [text[index : index + size] for index in range(0, len(text), size)]
