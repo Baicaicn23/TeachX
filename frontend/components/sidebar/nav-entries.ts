@@ -1,6 +1,7 @@
 import { LEARNING_HUB } from '@/lib/learning-routes'
 import {
   Bot,
+  BookOpenCheck,
   GraduationCap,
   HeartHandshake,
   House,
@@ -34,6 +35,13 @@ export interface NavEntry {
  */
 export const PRIMARY_NAV: NavEntry[] = [
   { href: '/chat', label: 'Home', icon: House, tooltipKey: 'Home tooltip', requires: 'llm' },
+  {
+    href: '/learning-records',
+    label: 'Learning records',
+    icon: BookOpenCheck,
+    tooltipKey: 'Review tutor feedback and your saved misunderstandings.',
+    requires: 'llm',
+  },
   {
     href: '/partners',
     label: 'Partners',

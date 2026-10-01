@@ -34,8 +34,26 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at REAL NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS answer_feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    rating TEXT NOT NULL CHECK(rating IN ('helpful', 'unclear', 'wrong')),
+    note TEXT NOT NULL DEFAULT '',
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    UNIQUE(user_id, message_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_messages_session_created
 ON messages(session_id, created_at, id);
+
+CREATE INDEX IF NOT EXISTS idx_answer_feedback_user_updated
+ON answer_feedback(user_id, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_answer_feedback_session
+ON answer_feedback(session_id, message_id);
 
 CREATE INDEX IF NOT EXISTS idx_sessions_updated
 ON sessions(updated_at DESC);

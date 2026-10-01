@@ -37,6 +37,15 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { AnswerFeedbackActions } from "./AnswerFeedbackActions";
+import {
+  deleteAnswerFeedbackRecord,
+  listSessionAnswerFeedback,
+  upsertAnswerFeedback,
+  type AnswerFeedbackRating,
+  type AnswerFeedbackRecord,
+} from "@/lib/answer-feedback-api";
+import { notify } from "@/lib/notifications";
 import type { SelectedHistorySession } from "@/components/chat/HistorySessionPicker";
 import type { SelectedQuestionEntry } from "@/components/chat/QuestionBankPicker";
 import { ActivityFold, FoldCaret } from "@/components/activity";
@@ -1949,6 +1958,80 @@ export const ChatMessageList = memo(function ChatMessageList({
   onReleaseMessageTrace?: (messageId: number) => void;
 }) {
   const { t } = useTranslation();
+  const [feedbackByMessage, setFeedbackByMessage] = useState<
+    Record<number, AnswerFeedbackRecord>
+  >({});
+  const [feedbackBusyMessageId, setFeedbackBusyMessageId] = useState<
+    number | null
+  >(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!sessionId) {
+      setFeedbackByMessage({});
+      return () => {
+        cancelled = true;
+      };
+    }
+    void listSessionAnswerFeedback(sessionId)
+      .then((records) => {
+        if (cancelled) return;
+        setFeedbackByMessage(
+          Object.fromEntries(
+            records.map((record) => [record.message_id, record]),
+          ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setFeedbackByMessage({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
+
+  const saveAnswerFeedback = useCallback(
+    async (
+      messageId: number,
+      rating: AnswerFeedbackRating,
+      note = "",
+    ): Promise<void> => {
+      setFeedbackBusyMessageId(messageId);
+      try {
+        const record = await upsertAnswerFeedback(messageId, rating, note);
+        setFeedbackByMessage((current) => ({
+          ...current,
+          [messageId]: record,
+        }));
+        notify(t("Learning record saved"), { tone: "success" });
+      } catch {
+        notify(t("Could not save learning record"), { tone: "error" });
+      } finally {
+        setFeedbackBusyMessageId(null);
+      }
+    },
+    [t],
+  );
+
+  const removeAnswerFeedback = useCallback(
+    async (record: AnswerFeedbackRecord): Promise<void> => {
+      setFeedbackBusyMessageId(record.message_id);
+      try {
+        await deleteAnswerFeedbackRecord(record.id);
+        setFeedbackByMessage((current) => {
+          const next = { ...current };
+          delete next[record.message_id];
+          return next;
+        });
+        notify(t("Learning record deleted"), { tone: "success" });
+      } catch {
+        notify(t("Could not delete learning record"), { tone: "error" });
+      } finally {
+        setFeedbackBusyMessageId(null);
+      }
+    },
+    [t],
+  );
   // Visible path: when no branching has happened the result is identical
   // to the input. After an edit, sibling branches are filtered out so the
   // UI shows exactly one continuous thread, with arrow nav exposed on the
@@ -2371,6 +2454,21 @@ export const ChatMessageList = memo(function ChatMessageList({
                 )}
               </div>
             )}
+            {showActions && msg.id != null ? (
+              <AnswerFeedbackActions
+                record={feedbackByMessage[msg.id]}
+                busy={feedbackBusyMessageId === msg.id}
+                onSave={(rating, note) =>
+                  saveAnswerFeedback(msg.id as number, rating, note)
+                }
+                onDelete={() => {
+                  const record = feedbackByMessage[msg.id as number];
+                  return record
+                    ? removeAnswerFeedback(record)
+                    : Promise.resolve();
+                }}
+              />
+            ) : null}
           </div>
         );
       })}

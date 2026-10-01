@@ -356,6 +356,118 @@ class SessionRepository:
             row = await cursor.fetchone()
         return _json_loads(row["events"], []) if row else []
 
+    async def upsert_answer_feedback(
+        self,
+        *,
+        user_id: str,
+        message_id: int,
+        rating: str,
+        note: str = "",
+    ) -> dict[str, Any] | None:
+        if rating not in {"helpful", "unclear", "wrong"}:
+            raise ValueError("Unsupported answer feedback rating")
+        now = time.time()
+        async with self.database.connect() as connection:
+            cursor = await connection.execute(
+                """
+                SELECT m.id, m.session_id, m.role, s.user_id
+                FROM messages m
+                JOIN sessions s ON s.id = m.session_id
+                WHERE m.id = ?
+                """,
+                (message_id,),
+            )
+            message = await cursor.fetchone()
+            if message is None or str(message["role"]) != "assistant":
+                return None
+            if user_id and str(message["user_id"]) != user_id:
+                return None
+            await connection.execute(
+                """
+                INSERT INTO answer_feedback (
+                    user_id, session_id, message_id, rating, note,
+                    created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, message_id) DO UPDATE SET
+                    session_id = excluded.session_id,
+                    rating = excluded.rating,
+                    note = excluded.note,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    user_id,
+                    str(message["session_id"]),
+                    message_id,
+                    rating,
+                    note.strip()[:2000],
+                    now,
+                    now,
+                ),
+            )
+            await connection.commit()
+
+        records = await self.list_answer_feedback(
+            user_id=user_id,
+            session_id=str(message["session_id"]),
+        )
+        return next(
+            (record for record in records if int(record["message_id"]) == message_id),
+            None,
+        )
+
+    async def list_answer_feedback(
+        self,
+        *,
+        user_id: str,
+        session_id: str = "",
+        rating: str = "",
+    ) -> list[dict[str, Any]]:
+        if rating and rating not in {"helpful", "unclear", "wrong"}:
+            raise ValueError("Unsupported answer feedback rating")
+        async with self.database.connect() as connection:
+            cursor = await connection.execute(
+                """
+                SELECT
+                    f.id,
+                    f.session_id,
+                    f.message_id,
+                    f.rating,
+                    f.note,
+                    f.created_at,
+                    f.updated_at,
+                    s.title AS session_title,
+                    assistant.content AS answer,
+                    assistant.capability AS capability,
+                    COALESCE(parent.content, '') AS question
+                FROM answer_feedback f
+                JOIN sessions s ON s.id = f.session_id
+                JOIN messages assistant ON assistant.id = f.message_id
+                LEFT JOIN messages parent ON parent.id = assistant.parent_message_id
+                WHERE (? = '' OR f.user_id = ?)
+                  AND (? = '' OR f.session_id = ?)
+                  AND (? = '' OR f.rating = ?)
+                ORDER BY f.updated_at DESC, f.id DESC
+                """,
+                (user_id, user_id, session_id, session_id, rating, rating),
+            )
+            rows = await cursor.fetchall()
+        return [_answer_feedback_from_row(row) for row in rows]
+
+    async def delete_answer_feedback(
+        self,
+        *,
+        user_id: str,
+        feedback_id: int,
+    ) -> bool:
+        async with self.database.connect() as connection:
+            cursor = await connection.execute(
+                "DELETE FROM answer_feedback WHERE id = ? AND (? = '' OR user_id = ?)",
+                (feedback_id, user_id, user_id),
+            )
+            await connection.commit()
+            return cursor.rowcount > 0
+
     async def search_sessions(
         self,
         query: str,
@@ -463,3 +575,19 @@ class SessionRepository:
             created_at=float(row["created_at"]),
             parent_message_id=row["parent_message_id"],
         )
+
+
+def _answer_feedback_from_row(row: Any) -> dict[str, Any]:
+    return {
+        "id": int(row["id"]),
+        "session_id": str(row["session_id"]),
+        "message_id": int(row["message_id"]),
+        "rating": str(row["rating"]),
+        "note": str(row["note"] or ""),
+        "session_title": str(row["session_title"] or ""),
+        "question": str(row["question"] or ""),
+        "answer": str(row["answer"] or ""),
+        "capability": str(row["capability"] or ""),
+        "created_at": float(row["created_at"]),
+        "updated_at": float(row["updated_at"]),
+    }
