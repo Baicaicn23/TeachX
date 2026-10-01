@@ -29,6 +29,12 @@
 | [09](09-CI持续集成.md) | GitHub Actions、测试和构建 | `.github/workflows/ci.yml` |
 | [10](10-个人资料与学习档案.md) | 头像、资料校验、学习偏好和用户隐私 | `auth/service.py`、`api/routes/profile.py` |
 
+## 项目路线图
+
+了解每一步开发目标、当前进度和后续计划，请查看：
+
+- [TeachX 完整开发路线](../roadmap.md)
+
 ## 学习方法
 
 不要只读代码，按照下面的循环学习每一章：

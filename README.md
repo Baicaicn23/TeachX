@@ -265,7 +265,8 @@ npm run build
 
 真实供应商联调仍需配置 API Key，测试代码已经覆盖流式文本和分片工具参数。
 
-详细计划见 [docs/roadmap.md](docs/roadmap.md)。
+完整开发路线、已完成里程碑、每次迭代内容和验收标准见
+[docs/roadmap.md](docs/roadmap.md)。
 
 ## 与 DeepTutor 的关系
 
