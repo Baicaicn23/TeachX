@@ -22,7 +22,7 @@ Web 项目。它保留了 AI 学习产品真正有价值的核心：流式 Agent
 
 ## 当前状态
 
-P0、P1、P2 已完成，P3 正在进行。当前已加入用户注册登录、JWT HttpOnly Cookie、WebSocket 鉴权和会话隔离；PostgreSQL、Docker 和知识库所有权隔离尚未完成。
+P0、P1、P2 已完成，P3 正在进行。当前已加入用户注册登录、JWT HttpOnly Cookie、WebSocket 鉴权、会话隔离和知识库所有权隔离；PostgreSQL、Docker 和管理员用户管理尚未完成。
 
 | 模块 | 状态 |
 | --- | --- |
@@ -36,6 +36,7 @@ P0、P1、P2 已完成，P3 正在进行。当前已加入用户注册登录、J
 | OpenAI 兼容模型适配器 | 已实现流式输出和工具参数拼接，等待真实供应商 API 联调 |
 | 知识库 | 支持 TXT、Markdown、PDF 上传，FTS5、向量和 RRF 混合检索 |
 | 登录认证 | bcrypt、JWT HttpOnly Cookie、WebSocket 鉴权、会话按用户隔离 |
+| 资源授权 | 知识库按 owner_id 隔离，管理员可查看全部资源 |
 
 P1 的核心开发已经完成：`complete` 与 `stream` 双接口、真实 token 流式输出、
 工具参数分片拼接、能力模式提示词、会话标题生成和更完整的工具事件都已加入。
@@ -174,6 +175,8 @@ NEXT_PUBLIC_AUTH_ENABLED=true
 - bcrypt 密码哈希与 JWT HttpOnly Cookie
 - HTTP 与 WebSocket 认证边界
 - 会话按用户隔离
+- 知识库所有权隔离与管理员全局访问
+- Agent 检索工具继承当前用户权限
 - 原 DeepTutor 可选界面的兼容接口
 
 ## 项目结构
@@ -232,6 +235,7 @@ npm run build
 - [04：知识库与 RAG](docs/tutorials/04-知识库与RAG.md)
 - [05：向量检索与混合排序](docs/tutorials/05-向量检索与混合排序.md)
 - [06：认证与权限](docs/tutorials/06-认证与权限.md)
+- [07：多用户数据隔离](docs/tutorials/07-多用户数据隔离.md)
 
 ## 开发路线
 
@@ -240,7 +244,7 @@ npm run build
 | P0 | 可运行的 Web 与后端垂直切片 | 已完成 |
 | P1 | 真实流式模型、工具轨迹、能力提示词 | 核心已完成，待真实 API 联调 |
 | P2 | 知识库上传、检索与引用 | 已完成 |
-| P3 | 登录认证、PostgreSQL、部署 | 进行中，认证基础已完成 |
+| P3 | 登录认证、PostgreSQL、部署 | 进行中，认证与资源隔离已完成 |
 | P4 | CI、截图、在线演示与简历文档 | 计划中 |
 
 真实供应商联调仍需配置 API Key，测试代码已经覆盖流式文本和分片工具参数。

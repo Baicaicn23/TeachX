@@ -24,6 +24,7 @@
 | [04](04-知识库与RAG.md) | 上传、提取、切块、FTS5、检索和引用 | `knowledge/`、`runtime/tools.py` |
 | [05](05-向量检索与混合排序.md) | Embedding、余弦相似度、RRF 和重建立索引 | `knowledge/embeddings.py`、`knowledge/service.py` |
 | [06](06-认证与权限.md) | bcrypt、JWT、Cookie、WebSocket 鉴权和会话隔离 | `auth/`、`api/auth_dependencies.py` |
+| [07](07-多用户数据隔离.md) | owner_id、知识库权限、管理员边界和 Agent 工具授权 | `knowledge/service.py`、`runtime/tools.py` |
 
 ## 学习方法
 

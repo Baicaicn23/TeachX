@@ -36,7 +36,7 @@
 - [x] 用户注册登录和 JWT HttpOnly Cookie。
 - [x] WebSocket 鉴权。
 - [x] 会话按用户隔离。
-- [ ] 知识库所有权与资源授权。
+- [x] 知识库所有权与资源授权。
 - [ ] 管理员用户管理。
 - [ ] PostgreSQL 持久化。
 - [ ] Docker 与一体化部署。
