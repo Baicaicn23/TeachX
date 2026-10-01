@@ -13,6 +13,7 @@ from teachx.auth.service import AuthService
 from teachx.config import get_settings
 from teachx.knowledge.embeddings import build_embedding_provider
 from teachx.knowledge.service import KnowledgeService
+from teachx.model_connections.service import ModelConnectionService
 from teachx.practice.service import PracticeService
 from teachx.providers import build_provider
 from teachx.runtime.engine import AgentRuntime
@@ -45,6 +46,7 @@ async def lifespan(app: FastAPI):
         embedder=embedder,
     )
     practice = PracticeService(database)
+    model_connections = ModelConnectionService(database, secret=settings.auth_secret)
     tools = build_default_registry(knowledge)
     provider = build_provider(settings)
     runtime = AgentRuntime(
@@ -60,6 +62,7 @@ async def lifespan(app: FastAPI):
         auth=auth,
         knowledge=knowledge,
         practice=practice,
+        model_connections=model_connections,
         provider=provider,
         tools=tools,
         runtime=runtime,

@@ -102,10 +102,12 @@ async def _handle_start_turn(
         return
 
     sequence = 0
+    provider = await container.model_connections.provider_for_user(user_id=user_id)
     async for event in container.runtime.run_turn(
         command,
         user_id=user_id,
         is_admin=is_admin,
+        provider=provider,
     ):
         sequence += 1
         event["seq"] = sequence

@@ -3,6 +3,7 @@ import {
   Bot,
   BookOpenCheck,
   Brain,
+  Cable,
   GraduationCap,
   HeartHandshake,
   House,
@@ -48,6 +49,13 @@ export const PRIMARY_NAV: NavEntry[] = [
     label: 'Practice',
     icon: Brain,
     tooltipKey: 'Turn your materials into recall practice and scheduled review.',
+    requires: 'llm',
+  },
+  {
+    href: '/model-connections',
+    label: 'Model connections',
+    icon: Cable,
+    tooltipKey: 'Connect DeepSeek, OpenAI, or another OpenAI-compatible model platform.',
     requires: 'llm',
   },
   {

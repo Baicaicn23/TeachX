@@ -7,6 +7,7 @@ from teachx.api.routes import (
     health,
     knowledge,
     learning,
+    model_connections,
     practice,
     profile,
     sessions,
@@ -22,6 +23,7 @@ api_router.include_router(capabilities.router)
 api_router.include_router(compat.router)
 api_router.include_router(knowledge.router)
 api_router.include_router(learning.router)
+api_router.include_router(model_connections.router)
 api_router.include_router(practice.router)
 api_router.include_router(sessions.router)
 api_router.include_router(settings.router)

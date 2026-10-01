@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from teachx.auth.service import AuthService
 from teachx.config import Settings
 from teachx.knowledge.service import KnowledgeService
+from teachx.model_connections.service import ModelConnectionService
 from teachx.practice.service import PracticeService
 from teachx.providers.base import BaseProvider
 from teachx.runtime.engine import AgentRuntime
@@ -18,6 +19,7 @@ class ApplicationContainer:
     repository: SessionRepository
     auth: AuthService
     knowledge: KnowledgeService
+    model_connections: ModelConnectionService
     practice: PracticeService
     provider: BaseProvider
     tools: ToolRegistry

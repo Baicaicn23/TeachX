@@ -6,7 +6,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 (
   cd "$ROOT/backend"
   uv run ruff check src tests
-  uv run pytest -q
+  # Local .env may point at a real provider. Automated checks must stay
+  # deterministic and must never consume API credits.
+  TEACHX_LLM_PROVIDER=mock \
+    TEACHX_EMBEDDING_PROVIDER=mock \
+    uv run pytest -q
 )
 
 (

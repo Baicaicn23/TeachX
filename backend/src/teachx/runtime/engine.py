@@ -44,7 +44,9 @@ class AgentRuntime:
         *,
         user_id: str = "",
         is_admin: bool = False,
+        provider: BaseProvider | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
+        active_provider = provider or self.provider
         command.capability = command.capability or "chat"
         fallback_title = self._title_from_prompt(command.content)
         session_id = await self.repository.ensure_session(
@@ -115,7 +117,7 @@ class AgentRuntime:
                 result: LLMResult | None = None
                 round_content = ""
 
-                async for item in self.provider.stream(messages, tool_schemas):
+                async for item in active_provider.stream(messages, tool_schemas):
                     if isinstance(item, ContentDelta):
                         round_content += item.content
                         final_content_parts.append(item.content)
@@ -262,6 +264,7 @@ class AgentRuntime:
                     command.content,
                     final_content,
                     fallback_title,
+                    provider=active_provider,
                 )
                 await self.repository.rename_session(session_id, final_title)
                 yield {
@@ -378,13 +381,16 @@ class AgentRuntime:
         user_content: str,
         assistant_content: str,
         fallback: str,
+        *,
+        provider: BaseProvider | None = None,
     ) -> str:
         """使用模型生成短标题，失败时保留稳定的本地标题。"""
 
-        if getattr(self.provider, "name", "") == "mock":
+        active_provider = provider or self.provider
+        if getattr(active_provider, "name", "") == "mock":
             return fallback
         try:
-            result = await self.provider.complete(
+            result = await active_provider.complete(
                 [
                     {
                         "role": "system",

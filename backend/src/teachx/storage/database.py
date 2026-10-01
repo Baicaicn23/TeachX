@@ -78,6 +78,20 @@ CREATE TABLE IF NOT EXISTS practice_progress (
     PRIMARY KEY (user_id, knowledge_base)
 );
 
+CREATE TABLE IF NOT EXISTS model_connections (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    base_url TEXT NOT NULL,
+    api_key_encrypted TEXT NOT NULL,
+    default_model TEXT NOT NULL,
+    models TEXT NOT NULL DEFAULT '[]',
+    active INTEGER NOT NULL DEFAULT 0,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    UNIQUE(user_id, name)
+);
+
 CREATE INDEX IF NOT EXISTS idx_messages_session_created
 ON messages(session_id, created_at, id);
 
@@ -95,6 +109,9 @@ ON practice_attempts(question_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_practice_attempts_due
 ON practice_attempts(user_id, due_at);
+
+CREATE INDEX IF NOT EXISTS idx_model_connections_user
+ON model_connections(user_id, active DESC, updated_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_sessions_updated
 ON sessions(updated_at DESC);
