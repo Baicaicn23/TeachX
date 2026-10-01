@@ -47,12 +47,14 @@ Next.js Web 界面
 → chunker 切分片段
 → KnowledgeService 写入 SQLite
 → FTS5 建立全文索引
+→ Embedding 建立向量索引
+→ FTS 与向量使用 RRF 混合排序
 → knowledge_search 执行检索
 → sources 事件返回引用
 ```
 
-知识库原文保存在 `data/knowledge/`，不进入 Git。数据库保存文档元数据和提取文本，
-FTS5 保存可搜索的文本块。
+知识库原文保存在 `data/knowledge/`，不进入 Git。数据库保存文档元数据、提取文本、可搜索文本块和向量。
+Mock Embedding 用于本地开发，真实环境可切换 OpenAI 兼容 Embeddings API。
 
 ## Provider 接口
 

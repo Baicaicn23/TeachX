@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="当前状态" src="https://img.shields.io/badge/status-P2%20%E6%A0%B8%E5%BF%83%E5%AE%8C%E6%88%90-brightgreen">
+  <img alt="当前状态" src="https://img.shields.io/badge/status-P2%20%E5%AE%8C%E6%88%90-brightgreen">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.12-blue">
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.142-009688">
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black">
@@ -22,7 +22,7 @@ Web 项目。它保留了 AI 学习产品真正有价值的核心：流式 Agent
 
 ## 当前状态
 
-P0、P1 已完成；P2 知识库核心链路已经完成，真实供应商 API 和向量检索仍待后续验证。
+P0、P1、P2 已完成。知识库支持关键词、向量和混合检索；真实 LLM/Embedding API 仍建议使用你的 Key 做一次线上联调。
 
 | 模块 | 状态 |
 | --- | --- |
@@ -34,14 +34,14 @@ P0、P1 已完成；P2 知识库核心链路已经完成，真实供应商 API �
 | 计算器工具调用 | 可用 |
 | Mock 模型 | 可用 |
 | OpenAI 兼容模型适配器 | 已实现流式输出和工具参数拼接，等待真实供应商 API 联调 |
-| 知识库 | 支持 TXT、Markdown、PDF 上传，FTS5 检索和来源事件 |
+| 知识库 | 支持 TXT、Markdown、PDF 上传，FTS5、向量和 RRF 混合检索 |
 
 P1 的核心开发已经完成：`complete` 与 `stream` 双接口、真实 token 流式输出、
 工具参数分片拼接、能力模式提示词、会话标题生成和更完整的工具事件都已加入。
 
-P2 核心链路也已经完成：知识库创建、文档上传、文本提取、段落切块、SQLite FTS5
-全文索引、`knowledge_search` 工具和 `sources` 引用事件都能端到端运行。下一阶段将增加
-向量检索、文档删除与索引管理的进阶能力。
+P2 已经完成：知识库创建、文档上传、文本提取、段落切块、SQLite FTS5、Embedding
+向量索引、RRF 混合排序、`knowledge_search` 工具和 `sources` 引用事件都能端到端运行。
+下一阶段进入 P3：登录认证、PostgreSQL、Docker 和部署。
 
 ## 为什么使用 TeachX
 
@@ -128,7 +128,12 @@ export OPENAI_API_KEY=your-api-key
 export OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
-修改模型配置后需要重启后端。
+修改模型配置后需要重启后端。启用真实向量检索时，还需要设置：
+
+```bash
+export TEACHX_EMBEDDING_PROVIDER=openai
+export TEACHX_EMBEDDING_MODEL=text-embedding-3-small
+```
 
 ## 当前可用功能
 
@@ -141,6 +146,9 @@ export OPENAI_BASE_URL=https://api.openai.com/v1
 - 自动生成会话标题，并提供本地兜底标题
 - 知识库创建、文件和 PDF 上传
 - 文档提取、段落切块和 SQLite FTS5 全文检索
+- Mock / OpenAI 兼容 Embedding 向量检索
+- FTS5 与向量结果的 RRF 混合排序
+- 已有文本块的向量重建索引
 - `knowledge_search` 工具与来源引用事件
 - 原 DeepTutor 可选界面的兼容接口
 
@@ -197,6 +205,7 @@ npm run build
 - [02：从 `complete` 到 `stream`](docs/tutorials/02-从complete到stream.md)
 - [03：工具调用是怎么工作的](docs/tutorials/03-工具调用是怎么工作的.md)
 - [04：知识库与 RAG](docs/tutorials/04-知识库与RAG.md)
+- [05：向量检索与混合排序](docs/tutorials/05-向量检索与混合排序.md)
 
 ## 开发路线
 
@@ -204,7 +213,7 @@ npm run build
 | --- | --- | --- |
 | P0 | 可运行的 Web 与后端垂直切片 | 已完成 |
 | P1 | 真实流式模型、工具轨迹、能力提示词 | 核心已完成，待真实 API 联调 |
-| P2 | 知识库上传、检索与引用 | 核心已完成，向量检索待开发 |
+| P2 | 知识库上传、检索与引用 | 已完成 |
 | P3 | 登录认证、PostgreSQL、部署 | 计划中 |
 | P4 | CI、截图、在线演示与简历文档 | 计划中 |
 
