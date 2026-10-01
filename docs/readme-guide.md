@@ -113,4 +113,9 @@ Before updating the README after a milestone:
 - [ ] New capabilities are described as user outcomes.
 - [ ] Screenshots or diagrams are updated when presentation changed.
 - [ ] No secrets or machine-specific paths are present.
-- [ ] Upstream attribution and license remain accurate.
+- [ ] Upstream attribution and license remain accurate.## 语言规则
+
+- 主 `README.md` 使用中文。
+- Python 包名、API、命令、协议字段和技术专有名词保留英文。
+- 不为追求形式而翻译代码相关名称，避免降低可搜索性和可执行性。
+- 如果未来需要英文版本，使用独立的 `README.en.md`，不要让同一文件承担两种语言。

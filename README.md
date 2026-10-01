@@ -3,92 +3,86 @@
 </p>
 
 <p align="center">
-  A web-first AI tutoring platform built around a streaming agent loop.
+  一个以流式 Agent Loop 为核心的 Web AI 学习平台。
 </p>
 
 <p align="center">
-  <img alt="Status" src="https://img.shields.io/badge/status-P0%20runnable-brightgreen">
+  <img alt="当前状态" src="https://img.shields.io/badge/status-P0%20%E5%8F%AF%E8%BF%90%E8%A1%8C-brightgreen">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.12-blue">
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.142-009688">
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black">
-  <img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue">
+  <img alt="许可证" src="https://img.shields.io/badge/license-Apache--2.0-blue">
 </p>
 
-TeachX is an independent, web-first reimplementation inspired by
-[DeepTutor](https://github.com/HKUDS/DeepTutor). It keeps the useful core of an
-AI learning product: a streaming agent loop, model tool calling, reusable
-tutoring capabilities, durable conversations, and a polished Next.js interface.
+TeachX 是一个受 [DeepTutor](https://github.com/HKUDS/DeepTutor) 启发的独立
+Web 项目。它保留了 AI 学习产品真正有价值的核心：流式 Agent Loop、模型工具调用、
+可复用教学模式、持久化对话，以及完整的 Next.js Web 界面。
 
-The project is designed to be understandable, deployable, and extensible rather
-than a thin wrapper around a single model API.
+项目目标不是封装一次模型 API，而是构建一个能理解、能部署、能继续扩展的真实产品。
 
-## Current status
+## 当前状态
 
-P0 is complete and verified end to end.
+P0 阶段已经完成，并通过端到端验证。
 
-| Area | Status |
+| 模块 | 状态 |
 | --- | --- |
-| Next.js web application | Working, 43 routes build successfully |
-| FastAPI backend | Working |
-| WebSocket turn protocol | Working |
-| SQLite session persistence | Working |
-| Agent loop | Working |
-| Calculator tool calling | Working |
-| Mock model provider | Working |
-| OpenAI-compatible provider | Implemented, pending live provider integration tests |
+| Next.js Web 应用 | 可用，43 个路由均可成功构建 |
+| FastAPI 后端 | 可用 |
+| WebSocket 回合协议 | 可用 |
+| SQLite 会话持久化 | 可用 |
+| Agent Loop | 可用 |
+| 计算器工具调用 | 可用 |
+| Mock 模型 | 可用 |
+| OpenAI 兼容模型适配器 | 已实现，等待真实供应商集成测试 |
 
-The next milestone adds real token streaming, richer tool traces, automatic
-session titles, and capability-specific prompts.
+下一阶段将加入真实 token 流式输出、更完整的工具调用轨迹、自动生成会话标题，
+以及不同能力模式的专属提示词。
 
-## Why TeachX
+## 为什么使用 TeachX
 
-- **Agent-native:** Model turns can call tools, consume results, and continue
-  until an answer is ready.
-- **Web-first:** The product is designed around the browser instead of treating
-  the web interface as an afterthought.
-- **Provider-agnostic:** The runtime talks to a small provider interface, so
-  hosted and local OpenAI-compatible models can be swapped without rewriting the
-  agent loop.
-- **Durable:** Sessions, messages, and turn events are persisted and replayable.
-- **Extensible by design:** Tools and capabilities are explicit seams rather
-  than hard-coded branches inside the chat route.
+- **Agent 原生：** 模型回合可以调用工具、读取结果并继续推理，直到形成最终答案。
+- **Web 优先：** 产品围绕浏览器交互设计，而不是把 Web 界面当作附加功能。
+- **模型无关：** 运行时只依赖一个小型 Provider 接口，可以在托管模型和本地
+  OpenAI 兼容模型之间切换，而不需要重写 Agent Loop。
+- **可持续：** 会话、消息和回合事件都会持久化，并支持后续回放。
+- **方便扩展：** 工具与能力模式都有清晰接口，不需要把逻辑硬编码进聊天路由。
 
-## Architecture
+## 系统架构
 
 ```mermaid
 flowchart LR
-    Browser[Next.js Web App] -->|REST /api| API[FastAPI]
+    Browser[Next.js Web 应用] -->|REST /api| API[FastAPI]
     Browser -->|WebSocket /ws| API
     API --> Runtime[Agent Runtime]
-    Runtime --> Provider[Provider Adapter]
-    Runtime --> Tools[Tool Registry]
+    Runtime --> Provider[模型适配器]
+    Runtime --> Tools[工具注册表]
     Runtime --> Store[(SQLite)]
-    Provider --> Model[OpenAI-compatible Model]
+    Provider --> Model[OpenAI 兼容模型]
 ```
 
-The first vertical slice intentionally keeps the system small:
+第一阶段刻意把核心链路控制得足够小：
 
 ```text
 Next.js UI
-  -> unified turn protocol
+  -> 统一回合协议
   -> AgentRuntime
-  -> provider adapter
-  -> tool registry
-  -> session repository
+  -> Provider Adapter
+  -> Tool Registry
+  -> Session Repository
 ```
 
-## Quick start
+## 快速开始
 
-### Prerequisites
+### 环境要求
 
 - Python 3.12+
 - Node.js 22+
 - npm 10+
 - [uv](https://docs.astral.sh/uv/)
 
-No API key is required for the default mock provider.
+默认使用 Mock 模型，不需要 API Key。
 
-### 1. Start the backend
+### 1. 启动后端
 
 ```bash
 cd backend
@@ -96,9 +90,9 @@ uv sync
 uv run uvicorn teachx.main:app --app-dir src --reload --port 8010
 ```
 
-### 2. Start the frontend
+### 2. 启动前端
 
-In a second terminal:
+打开第二个终端：
 
 ```bash
 cd frontend
@@ -107,20 +101,20 @@ npm ci
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+浏览器访问 [http://localhost:3000](http://localhost:3000)。
 
-You can immediately test the complete path with:
+可以直接发送下面这条消息，验证完整链路：
 
 ```text
 计算 12 * 8
 ```
 
-The message travels through the browser, Next.js proxy, FastAPI WebSocket
-protocol, agent runtime, calculator tool, and SQLite persistence.
+这条消息会依次经过浏览器、Next.js 代理、FastAPI WebSocket 协议、Agent Runtime、
+计算器工具和 SQLite 持久化。
 
-## Use a real model
+## 接入真实模型
 
-TeachX currently supports OpenAI and compatible Chat Completions APIs.
+TeachX 目前支持 OpenAI 及兼容 Chat Completions 的接口。
 
 ```bash
 export TEACHX_LLM_PROVIDER=openai
@@ -129,81 +123,82 @@ export OPENAI_API_KEY=your-api-key
 export OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
-Restart the backend after changing provider settings.
+修改模型配置后需要重启后端。
 
-## What works today
+## 当前可用功能
 
-- Streaming turn events over WebSocket
-- Chat sessions with persisted history
-- Basic multi-turn context
-- Calculator tool calling
-- Capability catalog: `chat`, `deep_solve`, and `deep_question`
-- Mock mode for deterministic local development
-- OpenAI-compatible provider adapter
-- Frontend compatibility endpoints for optional DeepTutor surfaces
+- 基于 WebSocket 的流式回合事件
+- 支持历史记录的聊天会话
+- 基础多轮上下文
+- 计算器工具调用
+- 能力目录：`chat`、`deep_solve` 和 `deep_question`
+- 用于本地开发和测试的确定性 Mock 模式
+- OpenAI 兼容模型适配器
+- 原 DeepTutor 可选界面的兼容接口
 
-## Project structure
+## 项目结构
 
 ```text
 TeachX/
-├── backend/                 FastAPI service and agent runtime
+├── backend/                 FastAPI 服务和 Agent Runtime
 │   ├── src/teachx/
-│   │   ├── api/             HTTP and WebSocket adapters
-│   │   ├── providers/       Mock and OpenAI-compatible adapters
-│   │   ├── runtime/         Agent loop and tools
-│   │   └── storage/         SQLite persistence
+│   │   ├── api/             HTTP 与 WebSocket 适配层
+│   │   ├── providers/       Mock 与 OpenAI 兼容模型适配器
+│   │   ├── runtime/         Agent Loop 和工具系统
+│   │   └── storage/         SQLite 持久化
 │   └── tests/
-├── frontend/                Reused Apache-2.0 Next.js interface
+├── frontend/                基于 Apache-2.0 复用的 Next.js 界面
 ├── docs/
 │   ├── architecture.md
-│   ├── readme-guide.md      README maintenance standard
+│   ├── readme-guide.md      README 编写与维护规范
 │   └── roadmap.md
 ├── scripts/
-│   ├── dev.sh               Start frontend and backend
-│   └── check.sh             Run project checks
+│   ├── dev.sh               同时启动前后端
+│   └── check.sh             执行项目检查
 └── third_party/
     └── DeepTutor-LICENSE
 ```
 
-## Quality checks
+## 质量检查
 
 ```bash
 ./scripts/check.sh
 ```
 
-The check runs:
+当前检查内容包括：
 
-- Ruff
-- Backend tests
-- Frontend TypeScript validation
+- Ruff 静态检查
+- 后端自动测试
+- 前端 TypeScript 类型检查
 
-The frontend production build is verified separately:
+前端生产构建需要单独验证：
 
 ```bash
 cd frontend
 npm run build
 ```
 
-## Roadmap
+## 开发路线
 
-| Milestone | Scope | Status |
+| 阶段 | 范围 | 状态 |
 | --- | --- | --- |
-| P0 | Runnable web/backend vertical slice | Complete |
-| P1 | Real streaming models, tool traces, capability prompts | Next |
-| P2 | Knowledge upload, retrieval, citations | Planned |
-| P3 | Authentication, PostgreSQL, deployment | Planned |
-| P4 | CI, screenshots, demo environment, portfolio documentation | Planned |
+| P0 | 可运行的 Web 与后端垂直切片 | 已完成 |
+| P1 | 真实流式模型、工具轨迹、能力提示词 | 下一阶段 |
+| P2 | 知识库上传、检索与引用 | 计划中 |
+| P3 | 登录认证、PostgreSQL、部署 | 计划中 |
+| P4 | CI、截图、在线演示与简历文档 | 计划中 |
 
-See [docs/roadmap.md](docs/roadmap.md) for details.
+详细计划见 [docs/roadmap.md](docs/roadmap.md)。
 
-## Relationship to DeepTutor
+## 与 DeepTutor 的关系
 
-TeachX is not an official DeepTutor repository. The frontend is reused under the
-Apache-2.0 license, while the backend and runtime are being rewritten with a
-smaller product boundary.
+TeachX 不是 DeepTutor 的官方仓库。前端按照 Apache-2.0 许可证复用，后端和运行时
+则围绕更小的产品边界重新实现。
 
-See [UPSTREAM.md](UPSTREAM.md) for provenance and attribution.
+来源与归属说明见 [UPSTREAM.md](UPSTREAM.md)。
 
-## License
+## 许可证
 
-Apache License 2.0. See [LICENSE](LICENSE). The full upstream Apache-2.0 text is also preserved at [third_party/DeepTutor-LICENSE](third_party/DeepTutor-LICENSE).
+本项目使用 Apache License 2.0，详见 [LICENSE](LICENSE)。上游完整的
+Apache-2.0 文本同时保留在
+[third_party/DeepTutor-LICENSE](third_party/DeepTutor-LICENSE)。
