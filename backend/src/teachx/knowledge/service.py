@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import math
 import mimetypes
 import re
 import time
@@ -8,9 +10,12 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from teachx.knowledge.chunker import TextChunker
+from teachx.knowledge.embeddings import BaseEmbeddingProvider
 from teachx.knowledge.extractors import extract_text
 from teachx.knowledge.models import IngestResult, KnowledgeBaseRecord, SearchHit
 from teachx.storage.database import Database
+
+logger = logging.getLogger(__name__)
 
 
 class KnowledgeError(ValueError):
@@ -27,11 +32,13 @@ class KnowledgeService:
         *,
         max_file_bytes: int = 20 * 1024 * 1024,
         chunker: TextChunker | None = None,
+        embedder: BaseEmbeddingProvider | None = None,
     ) -> None:
         self.database = database
         self.root = root
         self.max_file_bytes = max_file_bytes
         self.chunker = chunker or TextChunker()
+        self.embedder = embedder
 
     async def create_base(
         self,
@@ -130,6 +137,7 @@ class KnowledgeService:
         chunks = self.chunker.chunk(text)
         if not chunks:
             raise KnowledgeError("文档没有可用文本")
+        embeddings = await self._embed_chunks(chunks)
 
         now = time.time()
         file_path = self._document_path(knowledge_base, rel_path)
@@ -193,6 +201,23 @@ class KnowledgeService:
                     """,
                     (chunk_id, chunk, chunk_id, knowledge_base),
                 )
+                if embeddings is not None:
+                    vector = embeddings[index]
+                    await connection.execute(
+                        """
+                        INSERT INTO knowledge_chunk_vectors (
+                            chunk_id, model, dimensions, vector, created_at
+                        )
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (
+                            chunk_id,
+                            self.embedder.model,
+                            len(vector),
+                            json.dumps(vector),
+                            now,
+                        ),
+                    )
 
             await connection.execute(
                 "UPDATE knowledge_bases SET updated_at = ? WHERE name = ?",
@@ -333,16 +358,78 @@ class KnowledgeService:
             return []
         limit = max(1, min(limit, 20))
         names = list(knowledge_bases or [])
-        terms = self._query_terms(query)
-        if not terms:
-            return []
-
         if not names:
             bases = await self.list_bases()
             names = [base.name for base in bases]
         if not names:
             return []
 
+        fts_hits = await self._search_fts(query, names, limit * 3)
+        vector_hits = await self._search_vectors(query, names, limit * 3)
+        return self._fuse_results([fts_hits, vector_hits], limit)
+
+    async def reindex_embeddings(self, knowledge_base: str) -> int:
+        """为已有文本块补建当前 embedding 模型对应的向量。"""
+
+        if self.embedder is None:
+            return 0
+        async with self.database.connect() as connection:
+            cursor = await connection.execute(
+                """
+                SELECT c.id, c.content
+                FROM knowledge_chunks c
+                LEFT JOIN knowledge_chunk_vectors v
+                  ON v.chunk_id = c.id AND v.model = ?
+                WHERE c.kb_name = ? AND v.chunk_id IS NULL
+                ORDER BY c.id
+                """,
+                (self.embedder.model, knowledge_base),
+            )
+            rows = await cursor.fetchall()
+
+        if not rows:
+            return 0
+        chunk_ids = [int(row["id"]) for row in rows]
+        texts = [str(row["content"]) for row in rows]
+        vectors = await self.embedder.embed(texts)
+        if len(vectors) != len(chunk_ids):
+            raise KnowledgeError("重新建立向量索引失败：向量数量不一致")
+
+        now = time.time()
+        async with self.database.connect() as connection:
+            for chunk_id, vector in zip(chunk_ids, vectors, strict=True):
+                await connection.execute(
+                    """
+                    INSERT INTO knowledge_chunk_vectors (
+                        chunk_id, model, dimensions, vector, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(chunk_id) DO UPDATE SET
+                        model = excluded.model,
+                        dimensions = excluded.dimensions,
+                        vector = excluded.vector,
+                        created_at = excluded.created_at
+                    """,
+                    (
+                        chunk_id,
+                        self.embedder.model,
+                        len(vector),
+                        json.dumps(vector),
+                        now,
+                    ),
+                )
+            await connection.commit()
+        return len(chunk_ids)
+
+    async def _search_fts(
+        self,
+        query: str,
+        names: list[str],
+        limit: int,
+    ) -> list[SearchHit]:
+        terms = self._query_terms(query)
+        if not terms:
+            return []
         placeholders = ", ".join("?" for _ in names)
         fts_query = " OR ".join(f'"{term}"' for term in terms)
         sql = f"""
@@ -396,9 +483,129 @@ class KnowledgeService:
                 chunk_index=int(row["chunk_index"]),
                 content=str(row["content"]),
                 score=float(row["rank"]),
+                metadata={"retriever": "fts"},
             )
             for row in rows
         ]
+
+    async def _search_vectors(
+        self,
+        query: str,
+        names: list[str],
+        limit: int,
+    ) -> list[SearchHit]:
+        if self.embedder is None:
+            return []
+        try:
+            query_vector = (await self.embedder.embed([query]))[0]
+        except Exception:
+            logger.warning("Query embedding failed; falling back to FTS", exc_info=True)
+            return []
+
+        placeholders = ", ".join("?" for _ in names)
+        sql = f"""
+            SELECT
+                c.id AS chunk_id,
+                c.kb_name,
+                c.chunk_index,
+                c.content,
+                d.relative_path,
+                v.vector
+            FROM knowledge_chunk_vectors v
+            JOIN knowledge_chunks c ON c.id = v.chunk_id
+            JOIN knowledge_documents d ON d.id = c.document_id
+            WHERE v.model = ?
+              AND c.kb_name IN ({placeholders})
+        """
+        async with self.database.connect() as connection:
+            cursor = await connection.execute(
+                sql,
+                (self.embedder.model, *names),
+            )
+            rows = await cursor.fetchall()
+
+        hits: list[SearchHit] = []
+        for row in rows:
+            try:
+                vector = json.loads(row["vector"])
+            except (TypeError, json.JSONDecodeError):
+                continue
+            similarity = self._cosine_similarity(query_vector, vector)
+            hits.append(
+                SearchHit(
+                    chunk_id=int(row["chunk_id"]),
+                    knowledge_base=str(row["kb_name"]),
+                    document=str(row["relative_path"]),
+                    chunk_index=int(row["chunk_index"]),
+                    content=str(row["content"]),
+                    score=similarity,
+                    metadata={"retriever": "vector"},
+                )
+            )
+        hits.sort(key=lambda hit: hit.score, reverse=True)
+        return hits[:limit]
+
+    @staticmethod
+    def _fuse_results(
+        rankings: list[list[SearchHit]],
+        limit: int,
+    ) -> list[SearchHit]:
+        """使用 Reciprocal Rank Fusion 合并不同检索器的排名。"""
+
+        fused: dict[int, dict[str, Any]] = {}
+        for ranking in rankings:
+            for rank, hit in enumerate(ranking, start=1):
+                entry = fused.setdefault(
+                    hit.chunk_id,
+                    {"hit": hit, "score": 0.0, "retrievers": []},
+                )
+                entry["score"] += 1.0 / (60 + rank)
+                entry["retrievers"].append(hit.metadata.get("retriever", "unknown"))
+
+        ordered = sorted(fused.values(), key=lambda item: item["score"], reverse=True)
+        results: list[SearchHit] = []
+        for entry in ordered[:limit]:
+            hit = entry["hit"]
+            results.append(
+                SearchHit(
+                    chunk_id=hit.chunk_id,
+                    knowledge_base=hit.knowledge_base,
+                    document=hit.document,
+                    chunk_index=hit.chunk_index,
+                    content=hit.content,
+                    score=round(float(entry["score"]), 8),
+                    metadata={"retrievers": entry["retrievers"]},
+                )
+            )
+        return results
+
+    async def _embed_chunks(self, chunks: list[str]) -> list[list[float]] | None:
+        if self.embedder is None:
+            return None
+        try:
+            vectors = await self.embedder.embed(chunks)
+        except Exception:
+            logger.warning("Document embedding failed; FTS remains available", exc_info=True)
+            return None
+        if len(vectors) != len(chunks):
+            logger.warning(
+                "Embedding count mismatch: expected=%s actual=%s",
+                len(chunks),
+                len(vectors),
+            )
+            return None
+        return vectors
+
+    @staticmethod
+    def _cosine_similarity(left: list[float], right: list[float]) -> float:
+        if not left or not right or len(left) != len(right):
+            return 0.0
+        dot = sum(a * b for a, b in zip(left, right, strict=True))
+        left_norm = math.sqrt(sum(value * value for value in left))
+        right_norm = math.sqrt(sum(value * value for value in right))
+        if left_norm == 0 or right_norm == 0:
+            return 0.0
+        return dot / (left_norm * right_norm)
 
     async def _remove_document_index(self, connection: Any, document_id: int) -> None:
         cursor = await connection.execute(

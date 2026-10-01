@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     temperature: float = 0.2
     max_agent_rounds: int = 6
 
+    embedding_provider: str = "mock"
+    embedding_model: str = "text-embedding-3-small"
+
     def _resolve_project_path(self, path: Path) -> Path:
         if not path.is_absolute():
             path = Path(__file__).resolve().parents[3] / path

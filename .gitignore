@@ -27,3 +27,4 @@ data/*
 .env
 .env.*
 !.env.example
+!backend/.env.example

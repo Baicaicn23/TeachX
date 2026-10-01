@@ -10,6 +10,7 @@ from teachx.api.container import ApplicationContainer
 from teachx.api.router import api_router
 from teachx.api.routes.ws import router as ws_router
 from teachx.config import get_settings
+from teachx.knowledge.embeddings import build_embedding_provider
 from teachx.knowledge.service import KnowledgeService
 from teachx.providers import build_provider
 from teachx.runtime.engine import AgentRuntime
@@ -24,10 +25,17 @@ async def lifespan(app: FastAPI):
     database = Database(settings.resolved_database_path())
     await database.initialize()
     repository = SessionRepository(database)
+    embedder = build_embedding_provider(
+        provider=settings.embedding_provider,
+        model=settings.embedding_model,
+        api_key=settings.api_key,
+        base_url=settings.base_url,
+    )
     knowledge = KnowledgeService(
         database,
         settings.resolved_knowledge_root(),
         max_file_bytes=settings.max_upload_bytes,
+        embedder=embedder,
     )
     tools = build_default_registry(knowledge)
     provider = build_provider(settings)

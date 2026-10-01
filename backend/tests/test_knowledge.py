@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from teachx.knowledge.chunker import TextChunker
+from teachx.knowledge.embeddings import MockEmbeddingProvider
 from teachx.knowledge.extractors import extract_text
 from teachx.knowledge.service import KnowledgeService
 from teachx.providers.base import BaseProvider, ContentDelta, LLMResult, StreamFinished, ToolCall
@@ -149,3 +150,50 @@ async def test_mock_provider_can_use_selected_knowledge_base(tmp_path: Path) -> 
     sources = [event for event in events if event["type"] == "sources"]
     assert tool_calls[0]["metadata"]["tool"] == "knowledge_search"
     assert sources
+
+
+@pytest.mark.asyncio
+async def test_mock_embedding_is_deterministic() -> None:
+    provider = MockEmbeddingProvider()
+    first, second = await provider.embed(["Agent Loop 调用工具", "Agent Loop 调用工具"])
+    assert first == second
+    assert len(first) == provider.dimensions
+
+
+@pytest.mark.asyncio
+async def test_hybrid_search_uses_fts_and_vector(tmp_path: Path) -> None:
+    database = Database(tmp_path / "hybrid.db")
+    await database.initialize()
+    service = KnowledgeService(
+        database,
+        tmp_path / "hybrid-files",
+        embedder=MockEmbeddingProvider(),
+    )
+    await service.create_base("混合检索")
+    await service.add_document(
+        "混合检索",
+        "tools.md",
+        "工具结果返回后，Agent Loop 会继续调用模型并生成最终回答。".encode(),
+    )
+
+    hits = await service.search("工具结果返回", ["混合检索"])
+    assert hits
+    assert set(hits[0].metadata["retrievers"]) == {"fts", "vector"}
+
+
+@pytest.mark.asyncio
+async def test_reindex_backfills_existing_chunks(tmp_path: Path) -> None:
+    database = Database(tmp_path / "reindex.db")
+    await database.initialize()
+    service = KnowledgeService(database, tmp_path / "reindex-files")
+    await service.create_base("旧知识库")
+    await service.add_document(
+        "旧知识库",
+        "old.md",
+        "这是一段在向量索引启用之前上传的资料。".encode(),
+    )
+
+    service.embedder = MockEmbeddingProvider()
+    indexed = await service.reindex_embeddings("旧知识库")
+    assert indexed == 1
+    assert await service.reindex_embeddings("旧知识库") == 0

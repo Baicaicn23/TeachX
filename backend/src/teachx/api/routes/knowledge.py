@@ -33,8 +33,8 @@ async def list_rag_providers() -> dict[str, list[dict[str, object]]]:
                 "description": "内置全文检索，无需外部服务，适合个人知识库。",
                 "configured": True,
                 "requires_api_key": False,
-                "modes": ["full-text"],
-                "default_mode": "full-text",
+                "modes": ["hybrid", "full-text", "vector"],
+                "default_mode": "hybrid",
                 "linkable": False,
             }
         ]
@@ -233,7 +233,13 @@ async def reindex_knowledge_base(
 ) -> dict[str, object]:
     if await container.knowledge.get_base(kb_name) is None:
         raise HTTPException(status_code=404, detail="知识库不存在")
-    return {"noop": True, "message": "当前版本使用实时索引，无需重新构建。"}
+    indexed = await container.knowledge.reindex_embeddings(kb_name)
+    return {
+        "noop": indexed == 0,
+        "message": (
+            "向量索引已经是最新状态。" if indexed == 0 else f"已为 {indexed} 个文本块补建向量索引。"
+        ),
+    }
 
 
 async def _ingest_files(

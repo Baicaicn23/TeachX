@@ -81,6 +81,17 @@ ON knowledge_chunks(kb_name, document_id, chunk_index);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_chunks_fts
 USING fts5(content, chunk_id UNINDEXED, kb_name UNINDEXED, tokenize='unicode61');
+
+CREATE TABLE IF NOT EXISTS knowledge_chunk_vectors (
+    chunk_id INTEGER PRIMARY KEY REFERENCES knowledge_chunks(id) ON DELETE CASCADE,
+    model TEXT NOT NULL,
+    dimensions INTEGER NOT NULL,
+    vector TEXT NOT NULL,
+    created_at REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_vectors_model
+ON knowledge_chunk_vectors(model);
 """
 
 

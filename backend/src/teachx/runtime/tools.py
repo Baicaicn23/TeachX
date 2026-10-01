@@ -183,6 +183,7 @@ class KnowledgeSearchTool(BaseTool):
                     "chunk_index": hit.chunk_index,
                     "snippet": hit.content,
                     "score": hit.score,
+                    "retrievers": hit.metadata.get("retrievers", []),
                 }
             )
         return ToolResult(
