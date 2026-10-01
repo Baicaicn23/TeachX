@@ -1,6 +1,12 @@
 import { apiFetch, apiUrl } from "@/lib/api";
 import type { AccountRole } from "@/lib/account-role";
 
+export interface PersonalizationStatus {
+  available: boolean;
+  enabled: boolean;
+  learner_profile: LearnerProfile;
+}
+
 export interface LearnerProfile {
   age?: number;
   grade_level?: string;
@@ -8,6 +14,12 @@ export interface LearnerProfile {
   language?: string;
   reading_level?: string;
   explanation_style?: string;
+}
+
+export async function getPersonalizationStatus(): Promise<PersonalizationStatus> {
+  const res = await apiFetch(apiUrl("/api/auth/personalization"));
+  if (!res.ok) throw new Error("Failed to fetch personalization status");
+  return (await res.json()) as PersonalizationStatus;
 }
 
 export async function getOwnLearnerProfile(): Promise<LearnerProfile | null> {

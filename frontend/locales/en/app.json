@@ -5272,5 +5272,10 @@
   "{{count}} files · {{bytes}} bytes": "{{count}} files · {{bytes}} bytes",
   "Assignments updated: {{names}}": "Assignments updated: {{names}}",
   "Save learner profile": "Save learner profile",
-  "Enable personalization": "Enable personalization"
+  "Enable personalization": "Enable personalization",
+  "Personalization": "Personalization",
+  "Personalization is off": "Personalization is off",
+  "Complete learner profile": "Complete learner profile to enable personalization",
+  "Set up": "Set up",
+  "Turn off": "Turn off"
 }

@@ -32,6 +32,22 @@ class LearnerProfileUpdate(BaseModel):
     explanation_style: str | None = Field(default=None, max_length=128)
 
 
+@router.get("/personalization")
+async def get_personalization_status(
+    user: UserRecord = Depends(require_user),
+    container: ApplicationContainer = Depends(get_container),
+) -> dict[str, object]:
+    current = await container.auth.get_user(user.id)
+    if current is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    profile = current.learner_profile or {}
+    return {
+        "available": bool(profile),
+        "enabled": current.personalization_enabled,
+        "learner_profile": profile,
+    }
+
+
 @router.get("/profile")
 async def get_profile(
     user: UserRecord = Depends(require_user),

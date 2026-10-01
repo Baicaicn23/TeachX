@@ -5272,5 +5272,10 @@
   "{{count}} files · {{bytes}} bytes": "{{count}} 个文件 · {{bytes}} 字节",
   "Assignments updated: {{names}}": "将更新以下工作区的分配：{{names}}",
   "Save learner profile": "保存学习档案",
-  "Enable personalization": "启用个性化"
+  "Enable personalization": "启用个性化",
+  "Personalization": "个性化",
+  "Personalization is off": "个性化已关闭",
+  "Complete learner profile": "完善学习档案以启用个性化",
+  "Set up": "去设置",
+  "Turn off": "关闭"
 }

@@ -47,6 +47,7 @@ import {
   shouldSurfaceLoadFailure,
 } from "@/lib/session-load";
 import StarterSuggestions from "@/components/chat/home/StarterSuggestions";
+import PersonalizationStatus from "@/components/chat/home/PersonalizationStatus";
 // Imported eagerly so the drawer shell is always mounted off-screen —
 // clicking a chip becomes a single CSS class flip, no chunk fetch + double
 // render. The heavy renderers inside still load lazily.
@@ -2718,6 +2719,7 @@ export default function ChatWorkspace({
                   </div>
                 </div>
               ) : null}
+              <PersonalizationStatus />
               <ChatComposer
                 composerRef={composerRef}
                 capMenuRef={capMenuRef}
