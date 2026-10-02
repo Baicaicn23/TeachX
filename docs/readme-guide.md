@@ -1,5 +1,8 @@
 # README maintenance guide
 
+> 本文件只负责 `README.md` 的结构和维护。通用文档规范、面向基础读者的写作规则
+> 和交付检查表，请先阅读 [`documentation-guide.md`](documentation-guide.md)。
+
 This guide records the README standard used by TeachX. It is based on a
 structural review of three high-signal open-source projects:
 

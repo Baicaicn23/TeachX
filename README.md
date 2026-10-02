@@ -27,6 +27,8 @@ Web 项目。它保留了 AI 学习产品真正有价值的核心：流式 Agent
 
 - [TeachX 开发交接文档](docs/HANDOFF.md)
 - [完整开发路线](docs/roadmap.md)
+- [TeachX 文档写作指南](docs/documentation-guide.md)
+- [面向 Agent 的项目规则](AGENTS.md)
 
 ## 当前状态
 
@@ -244,6 +246,7 @@ NEXT_PUBLIC_AUTH_ENABLED=true
 
 ```text
 TeachX/
+├── AGENTS.md                后续 Agent 必读规则
 ├── backend/                 FastAPI 服务和 Agent Runtime
 │   ├── src/teachx/
 │   │   ├── api/             HTTP 与 WebSocket 适配层
@@ -257,6 +260,7 @@ TeachX/
 ├── compose.yaml             前后端一体化容器编排
 ├── docs/
 │   ├── architecture.md
+│   ├── documentation-guide.md 面向新手的中文文档规范
 │   ├── readme-guide.md      README 编写与维护规范
 │   └── roadmap.md
 ├── scripts/

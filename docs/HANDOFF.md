@@ -11,7 +11,7 @@
 
 ```text
 请先完整阅读 docs/HANDOFF.md、docs/roadmap.md、docs/architecture.md、
-README.md 和 docs/tutorials/README.md。
+README.md、docs/tutorials/README.md 和 docs/documentation-guide.md。
 
 这是一个持续开发中的真实项目，不要从零重做，也不要删除本地数据。
 先检查 git status、最近提交和当前验证结果，然后从 HANDOFF 的“下一步优先级”继续。
@@ -571,6 +571,10 @@ deepseek-v4-pro
 → push
 ```
 
+每次任务结束前都要做文档判定。新功能必须补中文教程，小修复至少检查现有文档
+是否失真。面向基础一般的读者写作，术语要解释，命令要有预期结果；详细规则见
+`docs/documentation-guide.md`。
+
 不要：
 
 - 在没有验证的情况下声称真实模型或线上环境完成。
@@ -629,10 +633,12 @@ cat docs/roadmap.md
 
 ```text
 你正在接手 TeachX。请先阅读 docs/HANDOFF.md、docs/roadmap.md、
-docs/architecture.md、README.md 和 docs/tutorials/README.md。
+docs/architecture.md、README.md、docs/tutorials/README.md 和
+docs/documentation-guide.md。
 
 不要从零重做，不要删除本地数据或 Secret，不要让自动测试调用真实模型。
 先检查 git status、最近提交和 ./scripts/check.sh，然后从当前最高优先级继续。
 
-大型功能必须补中文教程、更新 README/roadmap、浏览器验证、commit、push。
+每次任务结束前都要做文档判定。新功能必须补适合基础读者的中文教程、更新
+README/roadmap、浏览器验证、commit、push。
 ```
