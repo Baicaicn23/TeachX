@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import ast
+import asyncio
 import operator
+import sqlite3
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, ClassVar
@@ -10,7 +13,56 @@ from teachx.knowledge.service import KnowledgeService
 
 
 class ToolError(ValueError):
-    pass
+    """A permanent tool failure that should not be retried."""
+
+    code: ClassVar[str] = "tool_error"
+
+
+class ToolTransientError(RuntimeError):
+    """A temporary tool failure that may be retried safely."""
+
+    code: ClassVar[str] = "tool_transient_error"
+
+
+class ToolTimeoutError(ToolTransientError):
+    """A tool exceeded its configured execution timeout."""
+
+    code = "tool_timeout"
+
+
+@dataclass(slots=True, frozen=True)
+class ToolPolicy:
+    """Execution policy declared by one tool.
+
+    ``None`` values inherit the registry defaults. This lets a tool override only
+    the property it cares about without duplicating global execution policy.
+    """
+
+    read_only: bool = True
+    max_attempts: int | None = None
+    timeout_seconds: float | None = None
+    retry_base_delay_seconds: float | None = None
+    retry_max_delay_seconds: float | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class ToolExecutionDefaults:
+    """Registry-wide defaults for retries and timeouts."""
+
+    max_attempts: int = 3
+    timeout_seconds: float = 30.0
+    retry_base_delay_seconds: float = 0.2
+    retry_max_delay_seconds: float = 2.0
+
+    def __post_init__(self) -> None:
+        if self.max_attempts < 1:
+            raise ValueError("max_attempts must be at least 1")
+        if self.timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
+        if self.retry_base_delay_seconds < 0:
+            raise ValueError("retry_base_delay_seconds cannot be negative")
+        if self.retry_max_delay_seconds < self.retry_base_delay_seconds:
+            raise ValueError("retry_max_delay_seconds cannot be smaller than the base delay")
 
 
 @dataclass(slots=True, frozen=True)
@@ -36,6 +88,7 @@ class BaseTool(ABC):
     name: ClassVar[str]
     description: ClassVar[str]
     parameters: ClassVar[dict[str, Any]]
+    policy: ClassVar[ToolPolicy] = ToolPolicy()
 
     def schema(self) -> dict[str, Any]:
         return {
@@ -70,6 +123,7 @@ class CalculatorTool(BaseTool):
         "required": ["expression"],
         "additionalProperties": False,
     }
+    policy = ToolPolicy(read_only=True, max_attempts=1, timeout_seconds=2.0)
 
     _binary_operators: ClassVar[dict[type[ast.operator], Any]] = {
         ast.Add: operator.add,
@@ -141,6 +195,7 @@ class KnowledgeSearchTool(BaseTool):
         "required": ["query"],
         "additionalProperties": False,
     }
+    policy = ToolPolicy(read_only=True, max_attempts=3, timeout_seconds=10.0)
 
     def __init__(self, service: KnowledgeService) -> None:
         self.service = service
@@ -159,13 +214,20 @@ class KnowledgeSearchTool(BaseTool):
         else:
             knowledge_bases = list(context.knowledge_bases if context else ())
         limit = int(kwargs.get("limit") or 5)
-        hits = await self.service.search(
-            query,
-            knowledge_bases,
-            limit=limit,
-            owner_id=context.user_id if context else "",
-            is_admin=context.is_admin if context else False,
-        )
+        try:
+            hits = await self.service.search(
+                query,
+                knowledge_bases,
+                limit=limit,
+                owner_id=context.user_id if context else "",
+                is_admin=context.is_admin if context else False,
+            )
+        except sqlite3.OperationalError as exc:
+            if not _is_transient_sqlite_error(exc):
+                raise
+            raise ToolTransientError("知识库暂时不可用，请稍后重试") from exc
+        except (TimeoutError, OSError) as exc:
+            raise ToolTransientError("知识库暂时不可用，请稍后重试") from exc
         if not hits:
             return ToolResult(
                 content="知识库中没有找到与该问题相关的资料。",
@@ -197,8 +259,9 @@ class KnowledgeSearchTool(BaseTool):
 
 
 class ToolRegistry:
-    def __init__(self) -> None:
+    def __init__(self, defaults: ToolExecutionDefaults | None = None) -> None:
         self._tools: dict[str, BaseTool] = {}
+        self.defaults = defaults or ToolExecutionDefaults()
 
     def register(self, tool: BaseTool) -> None:
         self._tools[tool.name] = tool
@@ -218,15 +281,204 @@ class ToolRegistry:
     ) -> ToolResult:
         tool = self.get(name)
         if tool is None:
-            return ToolResult(content=f"Unknown tool: {name}", success=False)
-        try:
-            return await tool.execute(context=context, **arguments)
-        except Exception as exc:  # one bad tool must not kill the whole turn
-            return ToolResult(content=f"Tool {name} failed: {exc}", success=False)
+            return ToolResult(
+                content=f"Unknown tool: {name}",
+                success=False,
+                metadata={
+                    "attempt_count": 0,
+                    "retry_count": 0,
+                    "error_code": "unknown_tool",
+                    "retryable": False,
+                    "duration_ms": 0.0,
+                },
+            )
+
+        policy = self._resolve_policy(tool)
+        started_at = time.perf_counter()
+        attempt_count = 0
+        retry_delays_ms: list[float] = []
+        last_error: Exception | None = None
+        timed_out = False
+
+        while attempt_count < policy["max_attempts"]:
+            attempt_count += 1
+            try:
+                result = await asyncio.wait_for(
+                    tool.execute(context=context, **arguments),
+                    timeout=policy["timeout_seconds"],
+                )
+                return self._with_execution_metadata(
+                    result,
+                    attempt_count=attempt_count,
+                    retry_delays_ms=retry_delays_ms,
+                    duration_ms=(time.perf_counter() - started_at) * 1000,
+                    policy=policy,
+                )
+            except TimeoutError as exc:
+                timed_out = True
+                last_error = ToolTimeoutError(
+                    f"Tool {name} timed out after {policy['timeout_seconds']:.2f}s"
+                )
+                last_error.__cause__ = exc
+            except ToolTransientError as exc:
+                last_error = exc
+            except ToolError as exc:
+                return self._failure_result(
+                    name,
+                    exc,
+                    attempt_count=attempt_count,
+                    retry_delays_ms=retry_delays_ms,
+                    duration_ms=(time.perf_counter() - started_at) * 1000,
+                    policy=policy,
+                    retryable=False,
+                    timed_out=False,
+                )
+            except Exception as exc:  # unknown failures are treated as permanent
+                return self._failure_result(
+                    name,
+                    exc,
+                    attempt_count=attempt_count,
+                    retry_delays_ms=retry_delays_ms,
+                    duration_ms=(time.perf_counter() - started_at) * 1000,
+                    policy=policy,
+                    retryable=False,
+                    timed_out=False,
+                )
+
+            if attempt_count >= policy["max_attempts"]:
+                break
+            delay_seconds = min(
+                policy["retry_max_delay_seconds"],
+                policy["retry_base_delay_seconds"] * (2 ** (attempt_count - 1)),
+            )
+            retry_delays_ms.append(round(delay_seconds * 1000, 2))
+            if delay_seconds > 0:
+                await asyncio.sleep(delay_seconds)
+
+        assert last_error is not None
+        return self._failure_result(
+            name,
+            last_error,
+            attempt_count=attempt_count,
+            retry_delays_ms=retry_delays_ms,
+            duration_ms=(time.perf_counter() - started_at) * 1000,
+            policy=policy,
+            retryable=True,
+            timed_out=timed_out,
+        )
+
+    def _resolve_policy(self, tool: BaseTool) -> dict[str, Any]:
+        policy = tool.policy
+        max_attempts = (
+            policy.max_attempts
+            if policy.max_attempts is not None
+            else self.defaults.max_attempts
+        )
+        timeout_seconds = (
+            policy.timeout_seconds
+            if policy.timeout_seconds is not None
+            else self.defaults.timeout_seconds
+        )
+        retry_base_delay_seconds = (
+            policy.retry_base_delay_seconds
+            if policy.retry_base_delay_seconds is not None
+            else self.defaults.retry_base_delay_seconds
+        )
+        retry_max_delay_seconds = (
+            policy.retry_max_delay_seconds
+            if policy.retry_max_delay_seconds is not None
+            else self.defaults.retry_max_delay_seconds
+        )
+        if max_attempts < 1:
+            raise ValueError("tool max_attempts must be at least 1")
+        if timeout_seconds <= 0:
+            raise ValueError("tool timeout_seconds must be positive")
+        if retry_base_delay_seconds < 0 or retry_max_delay_seconds < 0:
+            raise ValueError("tool retry delays cannot be negative")
+        return {
+            "read_only": policy.read_only,
+            "max_attempts": max_attempts,
+            "timeout_seconds": timeout_seconds,
+            "retry_base_delay_seconds": retry_base_delay_seconds,
+            "retry_max_delay_seconds": max(
+                retry_base_delay_seconds,
+                retry_max_delay_seconds,
+            ),
+        }
+
+    def _with_execution_metadata(
+        self,
+        result: ToolResult,
+        *,
+        attempt_count: int,
+        retry_delays_ms: list[float],
+        duration_ms: float,
+        policy: dict[str, Any],
+    ) -> ToolResult:
+        metadata = dict(result.metadata or {})
+        metadata.update(
+            {
+                "attempt_count": attempt_count,
+                "retry_count": max(0, attempt_count - 1),
+                "retry_delays_ms": retry_delays_ms,
+                "duration_ms": round(duration_ms, 2),
+                "read_only": policy["read_only"],
+                "max_attempts": policy["max_attempts"],
+                "timeout_seconds": policy["timeout_seconds"],
+            }
+        )
+        return ToolResult(
+            content=result.content,
+            success=result.success,
+            metadata=metadata,
+        )
+
+    def _failure_result(
+        self,
+        name: str,
+        error: Exception,
+        *,
+        attempt_count: int,
+        retry_delays_ms: list[float],
+        duration_ms: float,
+        policy: dict[str, Any],
+        retryable: bool,
+        timed_out: bool,
+    ) -> ToolResult:
+        error_code = str(getattr(error, "code", "tool_error"))
+        metadata = {
+            "attempt_count": attempt_count,
+            "retry_count": max(0, attempt_count - 1),
+            "retry_delays_ms": retry_delays_ms,
+            "duration_ms": round(duration_ms, 2),
+            "error_code": error_code,
+            "retryable": retryable,
+            "timed_out": timed_out,
+            "read_only": policy["read_only"],
+            "max_attempts": policy["max_attempts"],
+            "timeout_seconds": policy["timeout_seconds"],
+        }
+        return ToolResult(
+            content=f"Tool {name} failed: {error}",
+            success=False,
+            metadata=metadata,
+        )
 
 
-def build_default_registry(knowledge_service: KnowledgeService) -> ToolRegistry:
-    registry = ToolRegistry()
+def build_default_registry(
+    knowledge_service: KnowledgeService,
+    *,
+    defaults: ToolExecutionDefaults | None = None,
+) -> ToolRegistry:
+    registry = ToolRegistry(defaults)
     registry.register(CalculatorTool())
     registry.register(KnowledgeSearchTool(knowledge_service))
     return registry
+
+
+def _is_transient_sqlite_error(error: sqlite3.OperationalError) -> bool:
+    message = str(error).lower()
+    return any(
+        marker in message
+        for marker in ("locked", "busy", "timeout", "temporarily", "unable to open")
+    )

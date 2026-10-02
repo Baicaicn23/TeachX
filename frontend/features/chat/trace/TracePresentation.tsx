@@ -656,6 +656,10 @@ function ToolExchangeDetail({
       : "";
 
   const resultText = result?.content?.trim() || (!isCall ? call.content : "");
+  const resultMeta = (result?.metadata ?? {}) as Record<string, unknown>;
+  const attemptCount = Number(resultMeta.attempt_count);
+  const retryCount = Number(resultMeta.retry_count);
+  const durationMs = Number(resultMeta.duration_ms);
   const rows: DetailRow[] = [];
 
   if (showToolName && (toolName || call.content)) {
@@ -663,6 +667,19 @@ function ToolExchangeDetail({
   }
   rows.push(...entries);
   if (fallback) rows.push({ key: "args", value: fallback, mono: true });
+  if (Number.isFinite(attemptCount) && attemptCount > 1) {
+    rows.push({
+      key: "attempts",
+      value:
+        Number.isFinite(retryCount) && retryCount > 0
+          ? `${attemptCount} (${retryCount} retries)`
+          : String(attemptCount),
+      mono: true,
+    });
+  }
+  if (Number.isFinite(durationMs)) {
+    rows.push({ key: "duration", value: `${durationMs.toFixed(2)} ms`, mono: true });
+  }
   if (resultText) {
     rows.push({
       key: "result",

@@ -247,15 +247,10 @@ class AgentRuntime:
                         saved_events.append(yield_event)
                         yield yield_event
 
-                        started_at = time.perf_counter()
                         tool_result = await self.tools.execute(
                             call.name,
                             call.arguments,
                             context=tool_context,
-                        )
-                        duration_ms = round(
-                            (time.perf_counter() - started_at) * 1000,
-                            2,
                         )
                         context_content = self._truncate_tool_result(tool_result.content)
                         result_event = self._event(
@@ -270,7 +265,6 @@ class AgentRuntime:
                                 "call_state": "complete",
                                 "tool": call.name,
                                 "success": tool_result.success,
-                                "duration_ms": duration_ms,
                                 "context_truncated": context_content != tool_result.content,
                                 **(tool_result.metadata or {}),
                             },

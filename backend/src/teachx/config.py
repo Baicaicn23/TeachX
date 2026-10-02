@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     max_history_messages: int = Field(default=24, ge=0)
     max_history_chars: int = Field(default=16000, ge=0)
     max_tool_result_chars: int = Field(default=6000, ge=0)
+    tool_max_attempts: int = Field(default=3, ge=1)
+    tool_timeout_seconds: float = Field(default=30.0, gt=0)
+    tool_retry_base_delay_ms: int = Field(default=200, ge=0)
+    tool_retry_max_delay_ms: int = Field(default=2000, ge=0)
     generate_titles: bool = False
     include_stream_usage: bool = True
 
