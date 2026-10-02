@@ -30,6 +30,11 @@ Web, Agent, database, or deployment experience. Use plain Chinese, define jargon
 at first use, show the expected result of every command, and explain the why
 before the internal implementation.
 
+Every major feature tutorial must include an interview-oriented Q&A section.
+Cover why the design exists, how it works, important trade-offs, failure modes,
+alternatives, and how to verify it. The goal is that the user can explain the
+implementation in an internship interview, not merely run the code.
+
 ## Safety and verification
 
 Never print or commit API keys, Auth Secrets, local account passwords, or other
