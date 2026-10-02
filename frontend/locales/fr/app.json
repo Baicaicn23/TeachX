@@ -5713,5 +5713,11 @@
   "Move this knowledge base with its documents, settings, and indexes. Existing workspace assignments are updated.": "Déplacer cette base avec ses documents, paramètres et index. Les attributions existantes seront mises à jour.",
   "Review move": "Vérifier le déplacement",
   "{{count}} files · {{bytes}} bytes": "{{count}} fichiers · {{bytes}} octets",
-  "Assignments updated: {{names}}": "Attributions mises à jour : {{names}}"
+  "Assignments updated: {{names}}": "Attributions mises à jour : {{names}}",
+  "Daily budget": "Budget quotidien",
+  "Budget remaining": "Budget restant",
+  "Budget status": "État du budget",
+  "Available": "Disponible",
+  "Exceeded": "Dépassé",
+  "{{used}} / {{limit}}": "{{used}} / {{limit}}"
 }

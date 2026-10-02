@@ -20,6 +20,7 @@ export interface UsageSummary {
   tokens_per_second?: number | null
   estimated_calls?: number
   call_details?: CallUsage[]
+  budget?: DailyBudgetStatus
 }
 export interface CallUsage extends UsageSummary {
   model?: string
@@ -28,12 +29,22 @@ export interface CallUsage extends UsageSummary {
   status?: string
 }
 
+export interface DailyBudgetStatus {
+  enabled: boolean
+  limit_tokens: number
+  used_tokens: number
+  remaining_tokens: number
+  exceeded: boolean
+  exceeded_action?: 'block' | 'mock'
+}
+
 export function combineUsage(summaries: UsageSummary[]): UsageSummary {
   const sum = (key: keyof UsageSummary) =>
     summaries.reduce((n, s) => n + (typeof s[key] === 'number' ? (s[key] as number) : 0), 0)
   const cacheInput = sum('cache_input_tokens')
   const ttftCalls = sum('ttft_calls')
   const generation = sum('generation_seconds')
+  const budget = [...summaries].reverse().find(summary => summary.budget)?.budget
   return {
     total_tokens: sum('total_tokens'),
     prompt_tokens: sum('prompt_tokens'),
@@ -63,6 +74,7 @@ export function combineUsage(summaries: UsageSummary[]): UsageSummary {
     tokens_per_second: generation ? sum('timed_completion_tokens') / generation : null,
     estimated_calls: sum('estimated_calls'),
     call_details: summaries.flatMap(s => s.call_details ?? []),
+    budget,
   }
 }
 

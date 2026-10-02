@@ -5420,5 +5420,10 @@
   "Personalization is off": "Personalization is off",
   "Complete learner profile": "Complete learner profile to enable personalization",
   "Set up": "Set up",
-  "Turn off": "Turn off"
+  "Turn off": "Turn off",
+  "Daily budget": "Daily budget",
+  "Budget remaining": "Budget remaining",
+  "Budget status": "Budget status",
+  "Exceeded": "Exceeded",
+  "{{used}} / {{limit}}": "{{used}} / {{limit}}"
 }

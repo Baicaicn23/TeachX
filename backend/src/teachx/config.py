@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -29,6 +30,15 @@ class Settings(BaseSettings):
     base_url: str | None = Field(default=None, validation_alias="OPENAI_BASE_URL")
     temperature: float = 0.2
     max_agent_rounds: int = 6
+    max_output_tokens: int = Field(default=1024, gt=0)
+    max_history_messages: int = Field(default=24, ge=0)
+    max_history_chars: int = Field(default=16000, ge=0)
+    max_tool_result_chars: int = Field(default=6000, ge=0)
+    generate_titles: bool = False
+    include_stream_usage: bool = True
+
+    daily_token_budget: int = Field(default=0, ge=0)
+    budget_exceeded_action: Literal["block", "mock"] = "block"
 
     embedding_provider: str = "mock"
     embedding_model: str = "text-embedding-3-small"

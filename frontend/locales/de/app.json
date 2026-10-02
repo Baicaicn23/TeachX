@@ -5420,5 +5420,10 @@
   "Move this knowledge base with its documents, settings, and indexes. Existing workspace assignments are updated.": "Diese Knowledge Base samt Dokumenten, Einstellungen und Indizes verschieben. Bestehende Workspace-Zuweisungen werden aktualisiert.",
   "Review move": "Verschiebung prüfen",
   "{{count}} files · {{bytes}} bytes": "{{count}} Dateien · {{bytes}} Bytes",
-  "Assignments updated: {{names}}": "Aktualisierte Zuweisungen: {{names}}"
+  "Assignments updated: {{names}}": "Aktualisierte Zuweisungen: {{names}}",
+  "Daily budget": "Tägliches Token-Budget",
+  "Budget remaining": "Verbleibendes Budget",
+  "Budget status": "Budgetstatus",
+  "Exceeded": "Überschritten",
+  "{{used}} / {{limit}}": "{{used}} / {{limit}}"
 }

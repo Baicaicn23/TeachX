@@ -263,6 +263,29 @@ class SessionRepository:
             await connection.commit()
         return await self.get_session(session_id, user_id=user_id)
 
+    async def update_message_events(
+        self,
+        message_id: int,
+        events: list[dict[str, Any]],
+        *,
+        user_id: str = "",
+    ) -> bool:
+        ownership_clause = ""
+        params: list[Any] = [_json_dumps(events), message_id]
+        if user_id:
+            ownership_clause = (
+                " AND EXISTS (SELECT 1 FROM sessions s "
+                "WHERE s.id = messages.session_id AND s.user_id = ?)"
+            )
+            params.append(user_id)
+        async with self.database.connect() as connection:
+            cursor = await connection.execute(
+                f"UPDATE messages SET events = ? WHERE id = ?{ownership_clause}",
+                params,
+            )
+            await connection.commit()
+            return cursor.rowcount > 0
+
     async def update_reply_language(
         self,
         session_id: str,

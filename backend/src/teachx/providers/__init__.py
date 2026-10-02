@@ -11,6 +11,8 @@ def build_provider(settings: Settings) -> BaseProvider:
             api_key=settings.api_key,
             base_url=settings.base_url,
             temperature=settings.temperature,
+            max_output_tokens=settings.max_output_tokens,
+            include_stream_usage=settings.include_stream_usage,
         )
     return MockProvider()
 

@@ -113,6 +113,32 @@ ON practice_attempts(user_id, due_at);
 CREATE INDEX IF NOT EXISTS idx_model_connections_user
 ON model_connections(user_id, active DESC, updated_at DESC);
 
+CREATE TABLE IF NOT EXISTS llm_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL DEFAULT '',
+    session_id TEXT NOT NULL DEFAULT '',
+    turn_id TEXT NOT NULL DEFAULT '',
+    call_kind TEXT NOT NULL DEFAULT '',
+    provider TEXT NOT NULL DEFAULT '',
+    model TEXT NOT NULL DEFAULT '',
+    prompt_tokens INTEGER NOT NULL DEFAULT 0,
+    completion_tokens INTEGER NOT NULL DEFAULT 0,
+    total_tokens INTEGER NOT NULL DEFAULT 0,
+    cached_tokens INTEGER,
+    reasoning_tokens INTEGER,
+    estimated INTEGER NOT NULL DEFAULT 0,
+    billable INTEGER NOT NULL DEFAULT 0,
+    duration_seconds REAL,
+    ttft_seconds REAL,
+    created_at REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_llm_usage_user_created
+ON llm_usage(user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_llm_usage_turn
+ON llm_usage(turn_id, created_at);
+
 CREATE INDEX IF NOT EXISTS idx_sessions_updated
 ON sessions(updated_at DESC);
 

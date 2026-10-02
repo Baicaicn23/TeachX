@@ -20,6 +20,7 @@ from teachx.runtime.engine import AgentRuntime
 from teachx.runtime.tools import build_default_registry
 from teachx.storage.database import Database
 from teachx.storage.repository import SessionRepository
+from teachx.usage.service import UsageService
 
 
 @asynccontextmanager
@@ -46,7 +47,14 @@ async def lifespan(app: FastAPI):
         embedder=embedder,
     )
     practice = PracticeService(database)
-    model_connections = ModelConnectionService(database, secret=settings.auth_secret)
+    usage = UsageService(database)
+    model_connections = ModelConnectionService(
+        database,
+        secret=settings.auth_secret,
+        max_output_tokens=settings.max_output_tokens,
+        temperature=settings.temperature,
+        include_stream_usage=settings.include_stream_usage,
+    )
     tools = build_default_registry(knowledge)
     provider = build_provider(settings)
     runtime = AgentRuntime(
@@ -55,6 +63,13 @@ async def lifespan(app: FastAPI):
         repository=repository,
         auth=auth,
         max_rounds=settings.max_agent_rounds,
+        usage=usage,
+        max_history_messages=settings.max_history_messages,
+        max_history_chars=settings.max_history_chars,
+        max_tool_result_chars=settings.max_tool_result_chars,
+        generate_titles=settings.generate_titles,
+        daily_token_budget=settings.daily_token_budget,
+        budget_exceeded_action=settings.budget_exceeded_action,
     )
     app.state.container = ApplicationContainer(
         settings=settings,

@@ -36,9 +36,20 @@ class _CredentialCipher:
 class ModelConnectionService:
     """Store user-owned OpenAI-compatible provider connections."""
 
-    def __init__(self, database: Database, *, secret: str) -> None:
+    def __init__(
+        self,
+        database: Database,
+        *,
+        secret: str,
+        max_output_tokens: int = 1024,
+        temperature: float = 0.2,
+        include_stream_usage: bool = True,
+    ) -> None:
         self.database = database
         self.cipher = _CredentialCipher(secret)
+        self.max_output_tokens = max_output_tokens
+        self.temperature = temperature
+        self.include_stream_usage = include_stream_usage
 
     async def list_connections(self, *, user_id: str) -> list[dict[str, Any]]:
         async with self.database.connect() as connection:
@@ -238,7 +249,9 @@ class ModelConnectionService:
             model=str(record["default_model"]),
             api_key=self.cipher.decrypt(str(record["api_key_encrypted"])),
             base_url=str(record["base_url"]),
-            temperature=0.2,
+            temperature=self.temperature,
+            max_output_tokens=self.max_output_tokens,
+            include_stream_usage=self.include_stream_usage,
         )
 
     async def _record(self, *, user_id: str, connection_id: str) -> Any:

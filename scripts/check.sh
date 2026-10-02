@@ -10,6 +10,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   # deterministic and must never consume API credits.
   TEACHX_LLM_PROVIDER=mock \
     TEACHX_EMBEDDING_PROVIDER=mock \
+    TEACHX_AUTH_ENABLED=false \
     uv run pytest -q
 )
 

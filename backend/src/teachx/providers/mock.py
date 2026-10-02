@@ -8,6 +8,7 @@ from teachx.providers.base import (
     BaseProvider,
     ContentDelta,
     LLMResult,
+    LLMUsage,
     ProviderEvent,
     StreamFinished,
     ToolCall,
@@ -22,6 +23,18 @@ class MockProvider(BaseProvider):
     name = "mock"
 
     async def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        *,
+        max_output_tokens: int | None = None,
+    ) -> LLMResult:
+        del max_output_tokens
+        result = await self._complete(messages, tools)
+        result.usage = self._estimate_usage(messages, result.content)
+        return result
+
+    async def _complete(
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
@@ -101,8 +114,14 @@ class MockProvider(BaseProvider):
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
+        *,
+        max_output_tokens: int | None = None,
     ) -> AsyncIterator[ProviderEvent]:
-        result = await self.complete(messages, tools)
+        result = await self.complete(
+            messages,
+            tools,
+            max_output_tokens=max_output_tokens,
+        )
         for chunk in self._chunks(result.content):
             yield ContentDelta(chunk)
         yield StreamFinished(result)
@@ -138,3 +157,18 @@ class MockProvider(BaseProvider):
     @staticmethod
     def _chunks(text: str, size: int = 12) -> list[str]:
         return [text[index : index + size] for index in range(0, len(text), size)]
+
+    @staticmethod
+    def _estimate_usage(
+        messages: list[dict[str, Any]],
+        completion: str,
+    ) -> LLMUsage:
+        prompt_chars = sum(len(str(item.get("content") or "")) for item in messages)
+        prompt_tokens = max(1, prompt_chars // 4)
+        completion_tokens = max(1, len(completion) // 4) if completion else 0
+        return LLMUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=prompt_tokens + completion_tokens,
+            estimated=True,
+        )

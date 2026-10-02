@@ -4,20 +4,24 @@ import json
 import time
 import uuid
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, Literal
 
 from teachx.auth.service import AuthService
 from teachx.providers.base import (
     BaseProvider,
     ContentDelta,
     LLMResult,
+    LLMUsage,
+    ProviderError,
     StreamFinished,
     ToolCall,
 )
+from teachx.providers.mock import MockProvider
 from teachx.runtime.prompts import PROMPT_VERSION, build_system_prompt
 from teachx.runtime.tools import ToolContext, ToolRegistry
 from teachx.schemas import SessionMessage, StartTurnCommand
 from teachx.storage.repository import SessionRepository
+from teachx.usage.service import UsageService
 
 
 class AgentRuntime:
@@ -31,12 +35,26 @@ class AgentRuntime:
         repository: SessionRepository,
         auth: AuthService | None = None,
         max_rounds: int = 6,
+        usage: UsageService | None = None,
+        max_history_messages: int = 24,
+        max_history_chars: int = 16000,
+        max_tool_result_chars: int = 6000,
+        generate_titles: bool = False,
+        daily_token_budget: int = 0,
+        budget_exceeded_action: Literal["block", "mock"] = "block",
     ) -> None:
         self.provider = provider
         self.tools = tools
         self.repository = repository
         self.auth = auth
         self.max_rounds = max_rounds
+        self.usage = usage
+        self.max_history_messages = max_history_messages
+        self.max_history_chars = max_history_chars
+        self.max_tool_result_chars = max_tool_result_chars
+        self.generate_titles = generate_titles
+        self.daily_token_budget = daily_token_budget
+        self.budget_exceeded_action = budget_exceeded_action
 
     async def run_turn(
         self,
@@ -47,6 +65,19 @@ class AgentRuntime:
         provider: BaseProvider | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         active_provider = provider or self.provider
+        budget_status = await self._budget_status(user_id)
+        budget_blocked = bool(
+            budget_status.get("exceeded")
+            and active_provider.name != "mock"
+            and self.budget_exceeded_action == "block"
+        )
+        budget_fallback = bool(
+            budget_status.get("exceeded")
+            and active_provider.name != "mock"
+            and self.budget_exceeded_action == "mock"
+        )
+        if budget_fallback:
+            active_provider = MockProvider()
         command.capability = command.capability or "chat"
         fallback_title = self._title_from_prompt(command.content)
         session_id = await self.repository.ensure_session(
@@ -95,6 +126,7 @@ class AgentRuntime:
             user_message,
             learner_profile=learner_profile,
         )
+        history_messages_used = max(0, len(messages) - 2)
         enabled_tools = ["calculator"] if command.tools is None else list(command.tools)
         if command.knowledge_bases and "knowledge_search" not in enabled_tools:
             enabled_tools.append("knowledge_search")
@@ -110,9 +142,47 @@ class AgentRuntime:
         finish_reason = "stop"
         rounds_used = 0
         tool_call_count = 0
+        usage_calls: list[dict[str, Any]] = []
+
+        if budget_blocked:
+            message = "今日 token 预算已用完。为避免继续产生费用，本轮未调用真实模型。"
+            error_event = self._event(
+                "error",
+                session_id,
+                turn_id,
+                command.capability,
+                content=message,
+                metadata={
+                    "status": "failed",
+                    "turn_terminal": True,
+                    "retryable": False,
+                    "error_code": "daily_budget_exceeded",
+                    "budget": budget_status,
+                },
+            )
+            yield error_event
+            yield {
+                "type": "done",
+                "source": "runtime",
+                "content": "",
+                "session_id": session_id,
+                "turn_id": turn_id,
+                "metadata": {
+                    "status": "failed",
+                    "user_message_id": user_message.id,
+                    "assistant_message_id": None,
+                    "history_messages_used": history_messages_used,
+                    "budget": budget_status,
+                    "usage_summary": self._usage_summary([], budget_status),
+                },
+            }
+            return
 
         try:
             for round_index in range(self.max_rounds):
+                if round_index > 0 and budget_status.get("exceeded"):
+                    finish_reason = "budget_exceeded"
+                    break
                 rounds_used = round_index + 1
                 result: LLMResult | None = None
                 round_content = ""
@@ -140,6 +210,19 @@ class AgentRuntime:
 
                 if result is None:
                     raise RuntimeError("模型流没有返回最终结果")
+
+                usage_calls.append(
+                    await self._record_usage(
+                        user_id=user_id,
+                        session_id=session_id,
+                        turn_id=turn_id,
+                        call_kind="agent_loop_round",
+                        provider=active_provider,
+                        usage=result.usage,
+                        billable=active_provider.name != "mock",
+                    )
+                )
+                budget_status = await self._budget_status(user_id)
 
                 finish_reason = result.finish_reason
                 if result.tool_calls:
@@ -174,12 +257,13 @@ class AgentRuntime:
                             (time.perf_counter() - started_at) * 1000,
                             2,
                         )
+                        context_content = self._truncate_tool_result(tool_result.content)
                         result_event = self._event(
                             "tool_result",
                             session_id,
                             turn_id,
                             command.capability,
-                            content=tool_result.content,
+                            content=context_content,
                             metadata={
                                 "call_id": call.id,
                                 "call_kind": "tool",
@@ -187,6 +271,7 @@ class AgentRuntime:
                                 "tool": call.name,
                                 "success": tool_result.success,
                                 "duration_ms": duration_ms,
+                                "context_truncated": context_content != tool_result.content,
                                 **(tool_result.metadata or {}),
                             },
                         )
@@ -215,7 +300,7 @@ class AgentRuntime:
                                 "role": "tool",
                                 "tool_call_id": call.id,
                                 "name": call.name,
-                                "content": tool_result.content,
+                                "content": context_content,
                             }
                         )
                     continue
@@ -241,8 +326,13 @@ class AgentRuntime:
 
             final_content = "".join(final_content_parts).strip()
             if not final_content:
-                finish_reason = "max_rounds"
-                final_content = "本轮推理达到最大工具调用轮数，请缩小问题范围后重试。"
+                if finish_reason != "budget_exceeded":
+                    finish_reason = "max_rounds"
+                final_content = (
+                    "本轮已达到今日 token 预算，后续模型调用已停止。"
+                    if finish_reason == "budget_exceeded"
+                    else "本轮推理达到最大工具调用轮数，请缩小问题范围后重试。"
+                )
                 fallback_event = self._event(
                     "content",
                     session_id,
@@ -257,15 +347,46 @@ class AgentRuntime:
                 )
                 saved_events.append(fallback_event)
                 yield fallback_event
+            elif finish_reason == "budget_exceeded":
+                notice = "\n\n本轮已达到今日 token 预算，后续模型调用已停止。"
+                final_content += notice
+                notice_event = self._event(
+                    "content",
+                    session_id,
+                    turn_id,
+                    command.capability,
+                    content=notice,
+                    metadata={
+                        "round": rounds_used,
+                        "call_kind": "budget_notice",
+                        "answer_visible": True,
+                    },
+                )
+                saved_events.append(notice_event)
+                yield notice_event
 
             final_title = fallback_title
             if is_first_turn:
-                final_title = await self._generate_title(
+                final_title, title_usage = await self._generate_title(
                     command.content,
                     final_content,
                     fallback_title,
                     provider=active_provider,
+                    budget_exceeded=bool(budget_status.get("exceeded")),
                 )
+                if title_usage is not None:
+                    usage_calls.append(
+                        await self._record_usage(
+                            user_id=user_id,
+                            session_id=session_id,
+                            turn_id=turn_id,
+                            call_kind="session_title",
+                            provider=active_provider,
+                            usage=title_usage,
+                            billable=active_provider.name != "mock",
+                        )
+                    )
+                    budget_status = await self._budget_status(user_id)
                 await self.repository.rename_session(session_id, final_title)
                 yield {
                     "type": "session_meta",
@@ -275,6 +396,8 @@ class AgentRuntime:
                     "turn_id": turn_id,
                     "metadata": {"title": final_title},
                 }
+
+            usage_summary = self._usage_summary(usage_calls, budget_status)
 
             assistant_message = await self.repository.add_message(
                 session_id=session_id,
@@ -288,6 +411,9 @@ class AgentRuntime:
                     "prompt_version": PROMPT_VERSION,
                     "rounds_used": rounds_used,
                     "tool_call_count": tool_call_count,
+                    "history_messages_used": history_messages_used,
+                    "budget_fallback": budget_fallback,
+                    "usage_summary": usage_summary,
                 },
                 parent_message_id=user_message.id,
             )
@@ -299,7 +425,7 @@ class AgentRuntime:
                 "session_id": session_id,
                 "turn_id": turn_id,
             }
-            yield {
+            result_event = {
                 "type": "result",
                 "source": command.capability,
                 "content": final_content,
@@ -310,9 +436,12 @@ class AgentRuntime:
                     "rounds_used": rounds_used,
                     "tool_call_count": tool_call_count,
                     "prompt_version": PROMPT_VERSION,
+                    "metadata": {"usage_summary": usage_summary},
                 },
             }
-            yield {
+            saved_events.append(result_event)
+            yield result_event
+            done_event = {
                 "type": "done",
                 "source": "runtime",
                 "content": "",
@@ -326,9 +455,22 @@ class AgentRuntime:
                     "rounds_used": rounds_used,
                     "tool_call_count": tool_call_count,
                     "personalization_applied": personalization_applied,
+                    "history_messages_used": history_messages_used,
+                    "budget_fallback": budget_fallback,
+                    "budget": budget_status,
+                    "usage_summary": usage_summary,
                 },
             }
-        except Exception as exc:
+            saved_events.append(done_event)
+            await self.repository.update_message_events(
+                assistant_message.id,
+                saved_events,
+                user_id=user_id,
+            )
+            yield done_event
+        except ProviderError as exc:
+            budget_status = await self._budget_status(user_id)
+            usage_summary = self._usage_summary(usage_calls, budget_status)
             failed_event = self._event(
                 "error",
                 session_id,
@@ -338,7 +480,11 @@ class AgentRuntime:
                 metadata={
                     "status": "failed",
                     "turn_terminal": True,
-                    "retryable": True,
+                    "retryable": exc.retryable,
+                    "error_code": exc.code,
+                    "provider_status_code": exc.status_code,
+                    "usage_summary": usage_summary,
+                    "budget": budget_status,
                 },
             )
             yield failed_event
@@ -352,6 +498,43 @@ class AgentRuntime:
                     "status": "failed",
                     "user_message_id": user_message.id,
                     "assistant_message_id": None,
+                    "history_messages_used": history_messages_used,
+                    "budget": budget_status,
+                    "usage_summary": usage_summary,
+                },
+            }
+        except Exception:
+            budget_status = await self._budget_status(user_id)
+            usage_summary = self._usage_summary(usage_calls, budget_status)
+            failed_event = self._event(
+                "error",
+                session_id,
+                turn_id,
+                command.capability,
+                content="运行时处理失败，请稍后重试。",
+                metadata={
+                    "status": "failed",
+                    "turn_terminal": True,
+                    "retryable": False,
+                    "error_code": "runtime_error",
+                    "usage_summary": usage_summary,
+                    "budget": budget_status,
+                },
+            )
+            yield failed_event
+            yield {
+                "type": "done",
+                "source": "runtime",
+                "content": "",
+                "session_id": session_id,
+                "turn_id": turn_id,
+                "metadata": {
+                    "status": "failed",
+                    "user_message_id": user_message.id,
+                    "assistant_message_id": None,
+                    "history_messages_used": history_messages_used,
+                    "budget": budget_status,
+                    "usage_summary": usage_summary,
                 },
             }
 
@@ -369,10 +552,7 @@ class AgentRuntime:
             learner_profile=learner_profile,
         )
         messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
-        for message in history:
-            if message.role == "system":
-                continue
-            messages.append({"role": message.role, "content": message.content})
+        messages.extend(self._trim_history(history))
         messages.append({"role": "user", "content": user_message.content})
         return messages
 
@@ -383,13 +563,21 @@ class AgentRuntime:
         fallback: str,
         *,
         provider: BaseProvider | None = None,
-    ) -> str:
+        budget_exceeded: bool = False,
+    ) -> tuple[str, LLMUsage | None]:
         """使用模型生成短标题，失败时保留稳定的本地标题。"""
 
         active_provider = provider or self.provider
-        if getattr(active_provider, "name", "") == "mock":
-            return fallback
+        if (
+            not self.generate_titles
+            or budget_exceeded
+            or getattr(active_provider, "name", "") == "mock"
+        ):
+            return fallback, None
         try:
+            configured_limit = int(
+                getattr(active_provider, "max_output_tokens", 1024)
+            )
             result = await active_provider.complete(
                 [
                     {
@@ -409,11 +597,163 @@ class AgentRuntime:
                     },
                 ],
                 [],
+                max_output_tokens=min(configured_limit, 64),
             )
             title = result.content.strip().splitlines()[0].strip("“”\"'。 ")
-            return title[:32] or fallback
+            return title[:32] or fallback, result.usage
         except Exception:
-            return fallback
+            return fallback, None
+
+    def _trim_history(self, history: list[SessionMessage]) -> list[dict[str, Any]]:
+        items = [
+            {"role": message.role, "content": message.content}
+            for message in history
+            if message.role != "system"
+        ]
+        if self.max_history_messages > 0:
+            items = items[-self.max_history_messages :]
+        if self.max_history_chars > 0:
+            selected: list[dict[str, Any]] = []
+            used_chars = 0
+            for item in reversed(items):
+                content_chars = len(str(item["content"]))
+                if selected and used_chars + content_chars > self.max_history_chars:
+                    break
+                selected.append(item)
+                used_chars += content_chars
+            items = list(reversed(selected))
+        while items and items[0]["role"] != "user":
+            items.pop(0)
+        return items
+
+    def _truncate_tool_result(self, content: str) -> str:
+        if self.max_tool_result_chars <= 0 or len(content) <= self.max_tool_result_chars:
+            return content
+        notice = "\n\n[工具结果过长，已截断后传给模型]"
+        if self.max_tool_result_chars <= len(notice):
+            return notice[: self.max_tool_result_chars]
+        keep = max(0, self.max_tool_result_chars - len(notice))
+        return content[:keep] + notice
+
+    async def _budget_status(self, user_id: str) -> dict[str, Any]:
+        if self.usage is None:
+            return {
+                "enabled": False,
+                "limit_tokens": self.daily_token_budget,
+                "used_tokens": 0,
+                "remaining_tokens": 0,
+                "exceeded": False,
+                "exceeded_action": self.budget_exceeded_action,
+            }
+        return await self.usage.daily_status(
+            user_id=user_id,
+            limit=self.daily_token_budget,
+            exceeded_action=self.budget_exceeded_action,
+        )
+
+    async def _record_usage(
+        self,
+        *,
+        user_id: str,
+        session_id: str,
+        turn_id: str,
+        call_kind: str,
+        provider: BaseProvider,
+        usage: LLMUsage | None,
+        billable: bool,
+    ) -> dict[str, Any]:
+        usage = usage or LLMUsage()
+        model = str(getattr(provider, "model", provider.name))
+        if self.usage is not None:
+            await self.usage.record_call(
+                user_id=user_id,
+                session_id=session_id,
+                turn_id=turn_id,
+                call_kind=call_kind,
+                provider=provider.name,
+                model=model,
+                usage=usage,
+                billable=billable,
+            )
+        return {
+            "model": model,
+            "provider": provider.name,
+            "call_kind": call_kind,
+            "prompt_tokens": usage.prompt_tokens,
+            "completion_tokens": usage.completion_tokens,
+            "total_tokens": usage.total_tokens,
+            "cache_read_input_tokens": usage.cached_tokens,
+            "reasoning_tokens": usage.reasoning_tokens,
+            "estimated": usage.estimated,
+            "duration_seconds": usage.duration_seconds,
+            "ttft_seconds": usage.ttft_seconds,
+        }
+
+    @staticmethod
+    def _usage_summary(
+        calls: list[dict[str, Any]],
+        budget: dict[str, Any],
+    ) -> dict[str, Any]:
+        prompt_tokens = sum(int(call.get("prompt_tokens", 0)) for call in calls)
+        completion_tokens = sum(
+            int(call.get("completion_tokens", 0)) for call in calls
+        )
+        total_tokens = sum(int(call.get("total_tokens", 0)) for call in calls)
+        cache_calls = [
+            call for call in calls if call.get("cache_read_input_tokens") is not None
+        ]
+        cache_input_tokens = sum(
+            int(call.get("prompt_tokens", 0)) for call in cache_calls
+        )
+        cache_read_tokens = sum(
+            int(call.get("cache_read_input_tokens", 0)) for call in cache_calls
+        )
+        duration_seconds = sum(
+            float(call.get("duration_seconds") or 0) for call in calls
+        )
+        ttft_calls = [call for call in calls if call.get("ttft_seconds") is not None]
+        generation_seconds = 0.0
+        timed_completion_tokens = 0
+        for call in calls:
+            duration = call.get("duration_seconds")
+            ttft = call.get("ttft_seconds")
+            if duration is None or ttft is None:
+                continue
+            generation_seconds += max(0.0, float(duration) - float(ttft))
+            timed_completion_tokens += int(call.get("completion_tokens", 0))
+        return {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+            "total_calls": len(calls),
+            "cache_read_input_tokens": cache_read_tokens,
+            "cache_input_tokens": cache_input_tokens,
+            "cache_reported_calls": len(cache_calls),
+            "cache_hit_rate": (
+                cache_read_tokens / cache_input_tokens if cache_input_tokens else None
+            ),
+            "reasoning_tokens": sum(
+                int(call.get("reasoning_tokens") or 0) for call in calls
+            ),
+            "estimated_calls": sum(1 for call in calls if call.get("estimated")),
+            "duration_seconds": duration_seconds,
+            "ttft_calls": len(ttft_calls),
+            "ttft_seconds": (
+                sum(float(call.get("ttft_seconds") or 0) for call in ttft_calls)
+                / len(ttft_calls)
+                if ttft_calls
+                else None
+            ),
+            "generation_seconds": generation_seconds,
+            "timed_completion_tokens": timed_completion_tokens,
+            "tokens_per_second": (
+                timed_completion_tokens / generation_seconds
+                if generation_seconds
+                else None
+            ),
+            "call_details": calls,
+            "budget": budget,
+        }
 
     @staticmethod
     def _assistant_tool_message(

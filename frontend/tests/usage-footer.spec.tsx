@@ -104,6 +104,29 @@ it('keeps unknown cache unknown and closes on outside pointer', () => {
   expect(screen.queryByRole('dialog')).toBeNull()
 })
 
+it('shows daily budget usage and preserves the latest status when combining', () => {
+  const budgeted: UsageSummary = {
+    total_tokens: 140,
+    budget: {
+      enabled: true,
+      limit_tokens: 1000,
+      used_tokens: 140,
+      remaining_tokens: 860,
+      exceeded: false,
+      exceeded_action: 'block',
+    },
+  }
+  const combined = combineUsage([turn, budgeted])
+  expect(combined.budget).toEqual(budgeted.budget)
+  render(<UsageFooter turn={budgeted} session={combined} />)
+  expect(screen.getByRole('button', { name: /Daily budget 140\/1K/ })).toBeVisible()
+  fireEvent.click(screen.getByRole('button', { name: /140 tokens/ }))
+  const panel = screen.getByRole('dialog')
+  expect(within(panel).getByText('140 / 1,000')).toBeVisible()
+  expect(within(panel).getByText('860')).toBeVisible()
+  expect(within(panel).getByText('Available')).toBeVisible()
+})
+
 it('cumulative totals stop at the selected reply, not the last session reply', () => {
   const messages = [turn, other, turn].map(usage => ({
     role: 'assistant',

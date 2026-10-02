@@ -98,6 +98,19 @@ export function UsageFooter({ turn, session }: { turn: UsageSummary; session: Us
         ? '—'
         : t('{{value}} tok/s', { value: shown.tokens_per_second.toFixed(1) }),
     ],
+    ...(shown.budget?.enabled
+      ? [
+          [
+            t('Daily budget'),
+            t('{{used}} / {{limit}}', {
+              used: number(shown.budget.used_tokens),
+              limit: number(shown.budget.limit_tokens),
+            }),
+          ],
+          [t('Budget remaining'), number(shown.budget.remaining_tokens)],
+          [t('Budget status'), shown.budget.exceeded ? t('Exceeded') : t('Available')],
+        ]
+      : []),
   ]
   return (
     <>
@@ -118,6 +131,15 @@ export function UsageFooter({ turn, session }: { turn: UsageSummary; session: Us
         <span>
           {t('Cache hit rate')} {rate(turn.cache_hit_rate)}
         </span>
+        {turn.budget?.enabled && (
+          <>
+            <span aria-hidden="true">·</span>
+            <span className={turn.budget.exceeded ? 'font-medium text-amber-600' : ''}>
+              {t('Daily budget')} {compact.format(turn.budget.used_tokens)}/
+              {compact.format(turn.budget.limit_tokens)}
+            </span>
+          </>
+        )}
         <ChevronDown size={12} aria-hidden="true" className={open ? 'rotate-180' : ''} />
       </button>
       {open &&
