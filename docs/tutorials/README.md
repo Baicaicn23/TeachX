@@ -15,39 +15,69 @@
 
 ## 推荐顺序
 
-| 章节 | 主题 | 对应代码 |
-| --- | --- | --- |
-| [00](00-如何阅读这个项目.md) | 如何阅读项目、运行项目和定位代码 | 整个仓库 |
-| [01](01-一次提问的完整旅程.md) | 一次提问从浏览器到数据库的完整路径 | `frontend/`、`backend/` |
-| [02](02-从complete到stream.md) | `async`、`await`、异步生成器和流式输出 | `providers/`、`runtime/engine.py` |
-| [03](03-工具调用是怎么工作的.md) | 消息角色、工具 schema、工具调用闭环 | `runtime/tools.py`、`runtime/engine.py` |
-| [04](04-知识库与RAG.md) | 上传、提取、切块、FTS5、检索和引用 | `knowledge/`、`runtime/tools.py` |
-| [05](05-向量检索与混合排序.md) | Embedding、余弦相似度、RRF 和重建立索引 | `knowledge/embeddings.py`、`knowledge/service.py` |
-| [06](06-认证与权限.md) | bcrypt、JWT、Cookie、WebSocket 鉴权和会话隔离 | `auth/`、`api/auth_dependencies.py` |
-| [07](07-多用户数据隔离.md) | owner_id、知识库权限、管理员边界和 Agent 工具授权 | `knowledge/service.py`、`runtime/tools.py` |
-| [08](08-Docker部署.md) | Image、Container、Volume、Compose 和健康检查 | `Dockerfile`、`compose.yaml` |
-| [09](09-CI持续集成.md) | GitHub Actions、测试和构建 | `.github/workflows/ci.yml` |
-| [10](10-个人资料与学习档案.md) | 头像、资料校验、学习偏好和用户隐私 | `auth/service.py`、`api/routes/profile.py` |
-| [11](11-个性化提示词.md) | 学习档案注入、开启关闭、注入防护和提示词测试 | `runtime/prompts.py`、`runtime/engine.py` |
-| [12](12-聊天页个性化状态.md) | 个性化状态条、快速开关、下一回合生效和独立组件设计 | `PersonalizationStatus.tsx`、`profile-api.ts` |
-| [13](13-首次使用引导.md) | 首次引导、跳过状态、学习目标、可选资料和旧用户迁移 | `onboarding/page.tsx`、`onboarding-api.ts` |
-| [14](14-学习反馈与错题记录.md) | 回答反馈、误区记录、用户隔离、记录管理和聊天草稿回流 | `AnswerFeedbackActions.tsx`、`answer-feedback-api.ts` |
-| [15](15-练习与复习模式.md) | 知识库出题、自评、复习间隔、掌握度和练习队列 | `practice/service.py`、`practice-review-api.ts` |
-| [16](16-对话中的学习目标.md) | 目标进度、完成状态、提示词注入、重新激活和聊天状态条 | `LearningGoalStatus.tsx`、`runtime/prompts.py` |
-| [17](17-用户模型连接与多平台.md) | 平台默认、用户模型连接、Key 加密、模型测试和 Provider 切换 | `model_connections/service.py`、`model-connections/page.tsx` |
-| [18](18-Agent费用控制与Provider稳定性.md) | token usage、输出和上下文预算、日预算、错误映射与费用验收 | `providers/`、`runtime/engine.py`、`usage/service.py` |
-| [19](19-工具执行政策与重试.md) | 工具政策、临时/永久错误、超时、指数退避、幂等保护、exactly-once 和面试问答 | `runtime/tools.py`、`runtime/tool_executions.py`、`runtime/engine.py` |
+教程按写成顺序连续编号(00~19),建议新人从 00 开始按顺序读。
+下面按主题分成六组,复习或查漏时按组跳读即可。
+
+### 第一组:项目入门(00~01)
+
+| 章节 | 主题 |
+| --- | --- |
+| [00](00-如何阅读这个项目.md) | 如何阅读项目、运行项目和定位代码 |
+| [01](01-一次提问的完整旅程.md) | 一次提问从浏览器到数据库的完整路径 |
+
+### 第二组:Agent 核心(02~03)
+
+| 章节 | 主题 |
+| --- | --- |
+| [02](02-从complete到stream.md) | `async`、`await`、异步生成器和流式输出 |
+| [03](03-工具调用是怎么工作的.md) | 消息角色、工具 schema、工具调用闭环 |
+
+### 第三组:知识库与 RAG(04~05)
+
+| 章节 | 主题 |
+| --- | --- |
+| [04](04-知识库与RAG.md) | 上传、提取、切块、FTS5、检索和引用 |
+| [05](05-向量检索与混合排序.md) | Embedding、余弦相似度、RRF 和重建立索引 |
+
+### 第四组:认证与多用户(06~09)
+
+| 章节 | 主题 |
+| --- | --- |
+| [06](06-认证与权限.md) | bcrypt、JWT、Cookie、WebSocket 鉴权和会话隔离 |
+| [07](07-多用户数据隔离.md) | owner_id、知识库权限、管理员边界和 Agent 工具授权 |
+| [08](08-Docker部署.md) | Image、Container、Volume、Compose 和健康检查(暂缓) |
+| [09](09-CI持续集成.md) | GitHub Actions、测试和构建 |
+
+### 第五组:个性化与学习闭环(10~16)
+
+| 章节 | 主题 |
+| --- | --- |
+| [10](10-个人资料与学习档案.md) | 头像、资料校验、学习偏好和用户隐私 |
+| [11](11-个性化提示词.md) | 学习档案注入、开启关闭、注入防护和提示词测试 |
+| [12](12-聊天页个性化状态.md) | 个性化状态条、快速开关、下一回合生效和独立组件设计 |
+| [13](13-首次使用引导.md) | 首次引导、跳过状态、学习目标、可选资料和旧用户迁移 |
+| [14](14-学习反馈与错题记录.md) | 回答反馈、误区记录、用户隔离、记录管理和聊天草稿回流 |
+| [15](15-练习与复习模式.md) | 知识库出题、自评、复习间隔、掌握度和练习队列 |
+| [16](16-对话中的学习目标.md) | 目标进度、完成状态、提示词注入、重新激活和聊天状态条 |
+
+### 第六组:模型接入与 Agent 稳定性(17~19)
+
+| 章节 | 主题 |
+| --- | --- |
+| [17](17-用户模型连接与多平台.md) | 平台默认、用户模型连接、Key 加密、模型测试和 Provider 切换 |
+| [18](18-Agent费用控制与Provider稳定性.md) | token usage、输出和上下文预算、日预算、错误映射与费用验收 |
+| [19](19-工具执行政策与重试.md) | 工具政策、超时、指数退避、幂等保护、exactly-once(最新参考标准) |
 
 ## 项目路线图
 
 了解每一步开发目标、当前进度和后续计划，请查看：
 
-- [TeachX 完整开发路线](../roadmap.md)
-- [TeachX 开发交接文档](../HANDOFF.md)
+- [TeachX 完整开发路线](../规划/开发路线图.md)
+- [TeachX 开发交接文档](../交接文档.md)
 
 ## 学习方法
 
-编写或修改教程前，请先阅读 [TeachX 文档写作指南](../documentation-guide.md)。
+编写或修改教程前，请先阅读 [TeachX 文档写作指南](../规范/文档写作指南.md)。
 教程需要让基础一般的读者知道“为什么、怎么做、结果是什么、出错怎么办”。
 每篇大型功能教程还必须包含至少 8 个面试问答，解释设计动机、替代方案、失败模式和
 工程取舍；教程 19 是当前参考示例。

@@ -20,7 +20,7 @@ TeachX 是一个受 [DeepTutor](https://github.com/HKUDS/DeepTutor) 启发的独
 后端完全重写，前端基于 Apache-2.0 复用。它不是"调一次模型 API"的封装，而是围绕
 2026 年 AI 应用岗位真正看重的工程能力构建的完整产品——把模型做成可靠、可控、
 可继续扩展的系统。技术选型依据见
-[2026 AI 岗位技术栈调研](docs/research/2026-AI岗位技术栈调研.md)。
+[2026 AI 岗位技术栈调研](docs/规划/2026-AI岗位技术栈调研.md)。
 
 ## 为什么这个项目不一样
 
@@ -129,9 +129,10 @@ TeachX/
 - [一次提问的完整旅程](docs/tutorials/01-一次提问的完整旅程.md)
 - [工具执行政策、重试与幂等保护](docs/tutorials/19-工具执行政策与重试.md)（最新参考标准）
 
-其他：[架构说明](docs/architecture.md)、
-[完整开发路线](docs/roadmap.md)、
-[文档写作指南](docs/documentation-guide.md)。
+其他：[全部文档导航](docs/README.md)、
+[架构说明](docs/参考/架构与数据流.md)、
+[开发路线图](docs/规划/开发路线图.md)、
+[文档写作指南](docs/规范/文档写作指南.md)。
 
 ## 开发路线
 
@@ -150,8 +151,8 @@ TeachX/
 ## 维护者入口
 
 接手开发或恢复上下文时，按顺序阅读：[AGENTS.md](AGENTS.md)、
-[开发交接文档](docs/HANDOFF.md)、[开发路线](docs/roadmap.md)、
-[文档写作指南](docs/documentation-guide.md)。
+[开发交接文档](docs/交接文档.md)、[开发路线图](docs/规划/开发路线图.md)、
+[文档写作指南](docs/规范/文档写作指南.md)。
 
 ## 上游关系与许可
 
