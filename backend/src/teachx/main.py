@@ -17,6 +17,7 @@ from teachx.model_connections.service import ModelConnectionService
 from teachx.practice.service import PracticeService
 from teachx.providers import build_provider
 from teachx.runtime.engine import AgentRuntime
+from teachx.runtime.tool_executions import ToolExecutionStore
 from teachx.runtime.tools import ToolExecutionDefaults, build_default_registry
 from teachx.storage.database import Database
 from teachx.storage.repository import SessionRepository
@@ -55,6 +56,10 @@ async def lifespan(app: FastAPI):
         temperature=settings.temperature,
         include_stream_usage=settings.include_stream_usage,
     )
+    execution_store = ToolExecutionStore(
+        database,
+        stale_seconds=settings.tool_execution_stale_seconds,
+    )
     tools = build_default_registry(
         knowledge,
         defaults=ToolExecutionDefaults(
@@ -63,6 +68,8 @@ async def lifespan(app: FastAPI):
             retry_base_delay_seconds=settings.tool_retry_base_delay_ms / 1000,
             retry_max_delay_seconds=settings.tool_retry_max_delay_ms / 1000,
         ),
+        execution_store=execution_store,
+        idempotency_enabled=settings.tool_idempotency_enabled,
     )
     provider = build_provider(settings)
     runtime = AgentRuntime(

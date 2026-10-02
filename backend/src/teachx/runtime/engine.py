@@ -136,6 +136,7 @@ class AgentRuntime:
             user_id=user_id,
             is_admin=is_admin,
             knowledge_bases=tuple(command.knowledge_bases),
+            turn_id=turn_id,
         )
         saved_events: list[dict[str, Any]] = []
         final_content_parts: list[str] = []
@@ -251,6 +252,7 @@ class AgentRuntime:
                             call.name,
                             call.arguments,
                             context=tool_context,
+                            call_id=call.id,
                         )
                         context_content = self._truncate_tool_result(tool_result.content)
                         result_event = self._event(

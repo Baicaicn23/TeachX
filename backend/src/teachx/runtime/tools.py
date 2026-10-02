@@ -10,6 +10,12 @@ from dataclasses import dataclass
 from typing import Any, ClassVar
 
 from teachx.knowledge.service import KnowledgeService
+from teachx.runtime.tool_executions import (
+    ToolExecutionRecord,
+    ToolExecutionStore,
+    arguments_hash,
+    compute_idempotency_key,
+)
 
 
 class ToolError(ValueError):
@@ -73,6 +79,7 @@ class ToolContext:
     user_id: str = ""
     is_admin: bool = False
     knowledge_bases: tuple[str, ...] = ()
+    turn_id: str = ""
 
 
 @dataclass(slots=True)
@@ -259,9 +266,16 @@ class KnowledgeSearchTool(BaseTool):
 
 
 class ToolRegistry:
-    def __init__(self, defaults: ToolExecutionDefaults | None = None) -> None:
+    def __init__(
+        self,
+        defaults: ToolExecutionDefaults | None = None,
+        execution_store: ToolExecutionStore | None = None,
+        idempotency_enabled: bool = True,
+    ) -> None:
         self._tools: dict[str, BaseTool] = {}
         self.defaults = defaults or ToolExecutionDefaults()
+        self.execution_store = execution_store
+        self.idempotency_enabled = idempotency_enabled
 
     def register(self, tool: BaseTool) -> None:
         self._tools[tool.name] = tool
@@ -278,6 +292,7 @@ class ToolRegistry:
         name: str,
         arguments: dict[str, Any],
         context: ToolContext | None = None,
+        call_id: str = "",
     ) -> ToolResult:
         tool = self.get(name)
         if tool is None:
@@ -294,6 +309,160 @@ class ToolRegistry:
             )
 
         policy = self._resolve_policy(tool)
+        idempotency_key = await self._claim_execution(
+            tool.name,
+            arguments,
+            context,
+            call_id,
+            policy,
+        )
+        if isinstance(idempotency_key, ToolResult):
+            return idempotency_key
+
+        result = await self._execute_with_policy(name, tool, arguments, context, policy)
+        if idempotency_key:
+            result = self._with_idempotency_metadata(result, idempotency_key)
+            await self._persist_execution(idempotency_key, result)
+        return result
+
+    async def _claim_execution(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        context: ToolContext | None,
+        call_id: str,
+        policy: dict[str, Any],
+    ) -> str | ToolResult:
+        """Return the idempotency key when this call owns the execution.
+
+        A ``ToolResult`` return value means the call must not execute the tool:
+        either the stored result is replayed or the execution is still running.
+        An empty string means idempotency is not engaged (no store, disabled,
+        or no turn identity), which keeps direct registry calls unchanged.
+        """
+        store = self.execution_store
+        if (
+            store is None
+            or not self.idempotency_enabled
+            or context is None
+            or not context.turn_id
+        ):
+            return ""
+        idempotency_key = compute_idempotency_key(
+            user_id=context.user_id,
+            session_id=context.session_id,
+            turn_id=context.turn_id,
+            call_id=call_id,
+            tool_name=name,
+            arguments=arguments,
+        )
+        claim = await store.begin(
+            idempotency_key=idempotency_key,
+            user_id=context.user_id,
+            session_id=context.session_id,
+            turn_id=context.turn_id,
+            call_id=call_id,
+            tool_name=name,
+            arguments_hash=arguments_hash(arguments),
+            read_only=bool(policy["read_only"]),
+        )
+        if claim.claimed:
+            return idempotency_key
+        record = claim.record
+        if record is not None and record.status == "running":
+            record = await store.wait_for_terminal(idempotency_key)
+        if record is None or record.status == "running":
+            return self._in_progress_result(name, idempotency_key)
+        return self._replay_result(record)
+
+    async def _persist_execution(self, idempotency_key: str, result: ToolResult) -> None:
+        store = self.execution_store
+        if store is None:
+            return
+        metadata = result.metadata or {}
+        if result.success:
+            await store.complete(
+                idempotency_key,
+                result_content=result.content,
+                result_metadata=metadata,
+                attempt_count=int(metadata.get("attempt_count", 0)),
+            )
+        else:
+            await store.fail(
+                idempotency_key,
+                error_content=result.content,
+                result_metadata=metadata,
+                attempt_count=int(metadata.get("attempt_count", 0)),
+            )
+
+    @staticmethod
+    def _with_idempotency_metadata(
+        result: ToolResult,
+        idempotency_key: str,
+    ) -> ToolResult:
+        metadata = dict(result.metadata or {})
+        metadata.update(
+            {
+                "deduplicated": False,
+                "replayed": False,
+                "idempotency_key_hash": idempotency_key[:16],
+                "execution_status": "completed" if result.success else "failed",
+            }
+        )
+        return ToolResult(
+            content=result.content,
+            success=result.success,
+            metadata=metadata,
+        )
+
+    @staticmethod
+    def _replay_result(record: ToolExecutionRecord) -> ToolResult:
+        metadata = dict(record.result_metadata)
+        metadata.update(
+            {
+                "deduplicated": True,
+                "replayed": True,
+                "idempotency_key_hash": record.idempotency_key[:16],
+                "execution_status": record.status,
+                "attempt_count": record.attempt_count,
+            }
+        )
+        if record.status == "completed":
+            return ToolResult(
+                content=record.result_content,
+                success=True,
+                metadata=metadata,
+            )
+        metadata.setdefault("error_code", "tool_execution_failed")
+        metadata.setdefault("retryable", False)
+        metadata.setdefault("timed_out", False)
+        content = record.error_content or f"Tool {record.tool_name} failed"
+        return ToolResult(content=content, success=False, metadata=metadata)
+
+    @staticmethod
+    def _in_progress_result(name: str, idempotency_key: str) -> ToolResult:
+        return ToolResult(
+            content=f"Tool {name} is still executing; try the request again later.",
+            success=False,
+            metadata={
+                "deduplicated": True,
+                "replayed": False,
+                "idempotency_key_hash": idempotency_key[:16],
+                "execution_status": "running",
+                "error_code": "tool_execution_in_progress",
+                "retryable": True,
+                "timed_out": False,
+            },
+        )
+
+    async def _execute_with_policy(
+        self,
+        name: str,
+        tool: BaseTool,
+        arguments: dict[str, Any],
+        context: ToolContext | None,
+        policy: dict[str, Any],
+    ) -> ToolResult:
         started_at = time.perf_counter()
         attempt_count = 0
         retry_delays_ms: list[float] = []
@@ -469,8 +638,14 @@ def build_default_registry(
     knowledge_service: KnowledgeService,
     *,
     defaults: ToolExecutionDefaults | None = None,
+    execution_store: ToolExecutionStore | None = None,
+    idempotency_enabled: bool = True,
 ) -> ToolRegistry:
-    registry = ToolRegistry(defaults)
+    registry = ToolRegistry(
+        defaults,
+        execution_store=execution_store,
+        idempotency_enabled=idempotency_enabled,
+    )
     registry.register(CalculatorTool())
     registry.register(KnowledgeSearchTool(knowledge_service))
     return registry

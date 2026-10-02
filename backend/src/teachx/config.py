@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     tool_timeout_seconds: float = Field(default=30.0, gt=0)
     tool_retry_base_delay_ms: int = Field(default=200, ge=0)
     tool_retry_max_delay_ms: int = Field(default=2000, ge=0)
+    tool_idempotency_enabled: bool = True
+    tool_execution_stale_seconds: float = Field(default=300.0, gt=0)
     generate_titles: bool = False
     include_stream_usage: bool = True
 

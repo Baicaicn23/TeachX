@@ -139,6 +139,30 @@ ON llm_usage(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_llm_usage_turn
 ON llm_usage(turn_id, created_at);
 
+CREATE TABLE IF NOT EXISTS tool_executions (
+    idempotency_key TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    turn_id TEXT NOT NULL,
+    call_id TEXT NOT NULL,
+    tool_name TEXT NOT NULL,
+    arguments_hash TEXT NOT NULL,
+    read_only INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL,
+    result_content TEXT NOT NULL DEFAULT '',
+    result_metadata TEXT NOT NULL DEFAULT '{}',
+    error_content TEXT NOT NULL DEFAULT '',
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_tool_executions_user_created
+ON tool_executions(user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_tool_executions_turn_call
+ON tool_executions(turn_id, call_id);
+
 CREATE INDEX IF NOT EXISTS idx_sessions_updated
 ON sessions(updated_at DESC);
 
