@@ -28,6 +28,7 @@ Web 项目。它保留了 AI 学习产品真正有价值的核心：流式 Agent
 - [TeachX 开发交接文档](docs/HANDOFF.md)
 - [完整开发路线](docs/roadmap.md)
 - [TeachX 文档写作指南](docs/documentation-guide.md)
+- [2026 AI 岗位技术栈调研](docs/research/2026-AI岗位技术栈调研.md)
 - [面向 Agent 的项目规则](AGENTS.md)
 
 ## 当前状态
