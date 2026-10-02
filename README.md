@@ -44,6 +44,7 @@ P0、P1、P2 已完成，P3 的认证、用户隔离和个人资料基础也已�
 | SQLite 会话持久化 | 可用 |
 | Agent Loop | 可用 |
 | 计算器工具调用 | 可用 |
+| 工具执行可靠性 | 支持工具政策、临时错误有限重试、超时和可观测元数据 |
 | Mock 模型 | 可用 |
 | OpenAI 兼容模型适配器 | 已使用 DeepSeek Flash 验证流式输出、工具调用和真实聊天 |
 | 知识库 | 支持 TXT、Markdown、PDF 上传，FTS5、向量和 RRF 混合检索 |
@@ -67,7 +68,8 @@ P2 已经完成：知识库创建、文档上传、文本提取、段落切块�
 向量索引、RRF 混合排序、`knowledge_search` 工具和 `sources` 引用事件都能端到端运行。
 P3 认证与资源隔离已经完成，普通用户的核心学习闭环也已覆盖引导、个性化、反馈、
 练习复习、学习目标和用户级模型连接。Agent 费用控制、Provider 错误映射和上下文
-预算也已完成；下一阶段继续工具重试、多工具执行和真实 Embedding。
+预算也已完成。工具执行的有限重试和超时已经加入；下一阶段继续幂等保护、评测、
+多工具执行和真实 Embedding。
 管理员功能、PostgreSQL 和 Docker 继续暂缓，不作为当前开发阻塞。
 
 ## 为什么使用 TeachX
@@ -177,6 +179,17 @@ export TEACHX_BUDGET_EXCEEDED_ACTION=block
 `0` 表示关闭日预算；超限行为可选择 `block` 或 `mock`。模型标题生成默认关闭，
 需要额外标题调用时设置 `TEACHX_GENERATE_TITLES=true`。
 
+工具执行默认使用有限重试和超时：
+
+```bash
+export TEACHX_TOOL_MAX_ATTEMPTS=3
+export TEACHX_TOOL_TIMEOUT_SECONDS=30
+export TEACHX_TOOL_RETRY_BASE_DELAY_MS=200
+export TEACHX_TOOL_RETRY_MAX_DELAY_MS=2000
+```
+
+每个工具可以覆盖这些默认值。参数错误不会重试，临时错误和超时才会进入有限退避重试。
+
 ## 启用登录认证
 
 默认情况下，本地开发关闭认证。需要使用用户系统时设置：
@@ -203,6 +216,8 @@ NEXT_PUBLIC_AUTH_ENABLED=true
 - 支持历史记录的聊天会话
 - 基础多轮上下文
 - 计算器工具调用，并记录调用 ID、状态和耗时
+- 工具声明只读属性、最大尝试次数和超时，由 `ToolRegistry` 统一执行有限退避重试
+- 工具失败区分临时错误、永久错误和超时，并记录尝试次数、重试次数和耗时
 - `chat`、`deep_solve`、`deep_question` 的专属提示词
 - 自动生成会话标题，并提供本地兜底标题
 - 知识库创建、文件和 PDF 上传
@@ -314,6 +329,7 @@ npm run build
 - [16：对话中的学习目标](docs/tutorials/16-对话中的学习目标.md)
 - [17：用户模型连接与多平台](docs/tutorials/17-用户模型连接与多平台.md)
 - [18：Agent 费用控制与 Provider 稳定性](docs/tutorials/18-Agent费用控制与Provider稳定性.md)
+- [19：工具执行政策与重试](docs/tutorials/19-工具执行政策与重试.md)
 
 ## 开发路线
 

@@ -36,6 +36,7 @@
 | [16](16-对话中的学习目标.md) | 目标进度、完成状态、提示词注入、重新激活和聊天状态条 | `LearningGoalStatus.tsx`、`runtime/prompts.py` |
 | [17](17-用户模型连接与多平台.md) | 平台默认、用户模型连接、Key 加密、模型测试和 Provider 切换 | `model_connections/service.py`、`model-connections/page.tsx` |
 | [18](18-Agent费用控制与Provider稳定性.md) | token usage、输出和上下文预算、日预算、错误映射与费用验收 | `providers/`、`runtime/engine.py`、`usage/service.py` |
+| [19](19-工具执行政策与重试.md) | 工具政策、临时/永久错误、超时、指数退避、可观测性和面试问答 | `runtime/tools.py`、`runtime/engine.py` |
 
 ## 项目路线图
 

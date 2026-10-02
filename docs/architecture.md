@@ -40,6 +40,23 @@ Next.js Web 界面
 4. 继续调用模型，直到得到最终回答或达到最大轮数。
 5. 保存用户消息、助手消息和完整事件。
 
+## 工具执行政策
+
+```text
+AgentRuntime
+→ ToolRegistry.execute()
+→ 合并工具自身 ToolPolicy 与 Registry 默认值
+→ 单次执行超时
+→ 临时错误按指数退避有限重试
+→ 返回统一 ToolResult 与执行 metadata
+```
+
+`ToolError` 表示永久失败，不重试；`ToolTransientError` 表示临时失败；`ToolTimeoutError`
+表示单次执行超时。未知异常默认按永久失败处理，避免在没有幂等保证时重复产生副作用。
+
+`ToolPolicy` 同时声明 `read_only`，为后续幂等保护和多工具并发提供统一语义。当前重试
+只能保证 at-least-once 行为；E2 新增幂等键和执行记录后，才能安全重试有副作用工具。
+
 ## 知识库链路
 
 ```text

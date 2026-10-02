@@ -2,7 +2,7 @@
 
 > 最后更新：2026-10-02
 >
-> 功能基线：`07e5a1a`；接手时使用 `git log -1` 查看最新提交。
+> 功能基线：`502bbcd`；接手时使用 `git log -1` 查看最新提交。
 > 用途：新的 Codex Agent、开发者或贡献者恢复项目上下文，并直接继续开发。
 
 ## 给下一个 Agent 的第一条指令
@@ -61,14 +61,16 @@ TeachX 是一个 Web 优先的 AI 学习平台：
 - 用户级模型连接：完成。
 - DeepSeek Flash：真实 `/models`、流式文本、工具调用、浏览器聊天已验证。
 - Agent 费用控制：完成，包含真实/估算 usage、输出与上下文上限、日预算和错误事件。
+- 工具执行政策与重试：完成，包含临时/永久错误、超时、有限退避和尝试次数元数据。
 
-后端自动测试当前为 `38 passed`。前端生产构建为 `47` 条路由。
+后端自动测试当前为 `45 passed`。前端生产构建为 `47` 条路由。
 
-当前下一步是 **Q2：工具调用重试、幂等和多工具策略**。
+当前下一步是 **E2：工具执行幂等保护**。
 
 ## 最近提交
 
 ```text
+502bbcd feat: add tool execution policies and retries
 07e5a1a feat: add token usage and daily budget controls
 483dddb docs: add model connection tutorial
 17c516c feat: add user model connections
@@ -210,7 +212,7 @@ npm run build
 当前预期：
 
 ```text
-38 passed
+45 passed
 typecheck passed
 47 Next.js routes built
 ```
@@ -506,12 +508,12 @@ deepseek-v4-pro
 
 ### P0：Agent 稳定性剩余项
 
-费用控制已完成，当前下一步是：
+费用控制和工具有限重试已完成，当前下一步是：
 
-1. 为工具调用增加重试和幂等保护。
+1. 为工具调用增加幂等键、执行记录和重复请求去重。
 2. 设计多工具并行执行和结果顺序。
 3. 对敏感工具参数做脱敏后再进入事件和日志。
-4. 为最大回合数、超时和断线恢复提供更明确的用户提示。
+4. 为最大回合数、整回合超时和断线恢复提供更明确的用户提示。
 
 按 E1～E5 顺序推进，详细交付、验收和依赖见
 `docs/roadmap.md` 的“近期执行计划”。
