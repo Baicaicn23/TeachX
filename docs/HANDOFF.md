@@ -2,7 +2,7 @@
 
 > 最后更新：2026-10-02
 >
-> 接手时使用 `git log -1` 查看当前真实提交；最后一个功能基线：`502bbcd`。
+> 接手时使用 `git log -1` 查看当前真实提交；最后一个功能基线：`cfaab58`。
 > 用途：新的 Codex Agent、开发者或贡献者恢复项目上下文，并直接继续开发。
 
 ## 给下一个 Agent 的第一条指令
@@ -16,7 +16,7 @@ docs/documentation-guide.md 和 docs/research/2026-AI岗位技术栈调研.md。
 
 这是一个持续开发中的真实项目，不要从零重做，也不要删除本地数据。
 先检查 git status、最近提交和当前验证结果，然后从 HANDOFF 的“下一步优先级”继续。
-当前明确下一步是 E2：工具执行幂等保护；E1 已经完成，不要重做。
+当前明确下一步是 E3：敏感工具参数脱敏；E1 和 E2 已经完成，不要重做。
 
 开发规则：
 - 普通用户体验优先。
@@ -29,16 +29,16 @@ docs/documentation-guide.md 和 docs/research/2026-AI岗位技术栈调研.md。
 
 ## 交接快照
 
-截至最后一个功能基线 `502bbcd`：
+截至最后一个功能基线 `cfaab58`：
 
 ```text
 分支：main
 工作区：应为 clean，并与 origin/main 同步
-后端标准检查：45 passed
+后端标准检查：55 passed
 前端类型检查：通过
 前端生产构建：47 routes
-当前功能任务：E1 已完成
-下一步功能任务：E2 工具执行幂等保护
+当前功能任务：E2 已完成（工具执行幂等保护）
+下一步功能任务：E3 敏感工具参数脱敏
 ```
 
 接手后不要先改代码。先运行 `git status --short --branch` 和
@@ -52,16 +52,16 @@ git log --oneline -12
 ./scripts/check.sh
 ```
 
-如果 `check.sh` 为 `45 passed` 且前端 typecheck 通过：
+如果 `check.sh` 为 `55 passed` 且前端 typecheck 通过：
 
-1. 阅读 `docs/roadmap.md` 的 E2。
-2. 阅读 `backend/src/teachx/runtime/tools.py` 和 `backend/tests/test_tool_reliability.py`。
-3. 从“下一步优先级”中的 E2 设计直接开工。
-4. 先写失败测试，再实现幂等键、执行记录和重复请求重放。
-5. 完成后更新教程 19、README、roadmap 和本文件。
+1. 阅读 `docs/roadmap.md` 的 E3。
+2. 阅读 `backend/src/teachx/runtime/tools.py`、
+   `backend/src/teachx/runtime/tool_executions.py` 和
+   `backend/tests/test_tool_idempotency.py`。
+3. 从“下一步优先级”中的 E3 继续开工。
 
 如果 `check.sh` 失败，先判断失败属于当前代码回归还是“已知无关失败”。
-已知无关失败见本文后面的“测试基线与已知失败”，不要在 E2 中顺手重写旧前端页面。
+已知无关失败见本文后面的“测试基线与已知失败”，不要在 E3 中顺手重写旧前端页面。
 
 ## 项目目标
 
@@ -85,7 +85,7 @@ TeachX 是一个 Web 优先的 AI 学习平台：
 
 ## 当前完成度
 
-截至 `502bbcd`：
+截至 `cfaab58`：
 
 - P0 Web 垂直切片：完成。
 - P1 流式 Agent Runtime：核心完成，DeepSeek Flash 已真实验证。
@@ -101,14 +101,17 @@ TeachX 是一个 Web 优先的 AI 学习平台：
 - DeepSeek Flash：真实 `/models`、流式文本、工具调用、浏览器聊天已验证。
 - Agent 费用控制：完成，包含真实/估算 usage、输出与上下文上限、日预算和错误事件。
 - 工具执行政策与重试：完成，包含临时/永久错误、超时、有限退避和尝试次数元数据。
+- 工具执行幂等保护：完成，包含幂等键、执行记录、重复请求重放、并发保护和 stale 接管。
 
-后端自动测试当前为 `45 passed`。前端生产构建为 `47` 条路由。
+后端自动测试当前为 `55 passed`。前端生产构建为 `47` 条路由。
 
-当前下一步是 **E2：工具执行幂等保护**。
+当前下一步是 **E3：敏感工具参数脱敏**。
 
 ## 最近提交
 
 ```text
+cfaab58 feat: add tool execution idempotency protection
+c64d6aa docs: strengthen agent handoff
 7969d7e docs: add tool retry tutorial
 502bbcd feat: add tool execution policies and retries
 07e5a1a feat: add token usage and daily budget controls
@@ -119,9 +122,6 @@ a5e12d9 feat: track learning goals in chat
 c38dbe1 docs: add practice and review tutorial
 f682cc1 feat: add knowledge-base practice and review
 143f40a docs: add learning feedback tutorial
-2c1f302 feat: add learning feedback and mistake records
-163da1b docs: add first-run onboarding guide
-abed83c feat: add first-run onboarding
 ```
 
 ## 本地环境与敏感文件
@@ -149,6 +149,8 @@ TEACHX_TOOL_MAX_ATTEMPTS=3
 TEACHX_TOOL_TIMEOUT_SECONDS=30
 TEACHX_TOOL_RETRY_BASE_DELAY_MS=200
 TEACHX_TOOL_RETRY_MAX_DELAY_MS=2000
+TEACHX_TOOL_IDEMPOTENCY_ENABLED=true
+TEACHX_TOOL_EXECUTION_STALE_SECONDS=300
 ```
 
 同时包含：
@@ -270,20 +272,20 @@ npm run build
 当前预期：
 
 ```text
-45 passed
+55 passed
 typecheck passed
 47 Next.js routes built
 ```
 
 ## 测试基线与已知失败
 
-这些结果已经在 `502bbcd` 代码基线上确认，方便新 Agent 区分回归与旧问题。
+这些结果已经在 `cfaab58` 代码基线上确认，方便新 Agent 区分回归与旧问题。
 
 ### 必须保持通过
 
 ```bash
 ./scripts/check.sh
-# 45 passed + typecheck passed
+# 55 passed + typecheck passed
 
 cd frontend
 npm run build
@@ -295,7 +297,7 @@ npm run test:unit -- --run tests/exploring-auto-fold.spec.tsx
 
 ### 已知无关失败
 
-以下失败不是 E1 引入的，除非用户明确要求，否则不要让 E2 被它们拖偏：
+以下失败不是 E1/E2 引入的，除非用户明确要求，否则不要让 E3 被它们拖偏：
 
 1. `npm run check:fast`
    - `test:node` 的 `admin-user-batches.test.js` 尝试读取
@@ -383,7 +385,8 @@ Next.js Chat UI
 | `backend/src/teachx/main.py` | 应用装配、数据库、Auth、Knowledge、Practice、ModelConnection、Runtime |
 | `backend/src/teachx/runtime/engine.py` | Agent Loop、工具循环、Provider 覆盖、个性化、标题 |
 | `backend/src/teachx/runtime/prompts.py` | 系统提示词、学习档案和目标注入 |
-| `backend/src/teachx/runtime/tools.py` | 工具注册、计算器、知识检索 |
+| `backend/src/teachx/runtime/tools.py` | 工具注册、计算器、知识检索、执行政策与幂等接缝 |
+| `backend/src/teachx/runtime/tool_executions.py` | 幂等键计算、tool_executions 执行记录存储与重放 |
 | `backend/src/teachx/providers/openai_compat.py` | OpenAI 兼容流式和工具参数拼接 |
 | `backend/src/teachx/usage/service.py` | token 用量持久化、按日预算统计和本地用户映射 |
 | `backend/src/teachx/storage/database.py` | SQLite schema 与迁移 |
@@ -451,7 +454,7 @@ ToolTimeoutError      单次执行超时，可以重试
 - `CalculatorTool`：`read_only=True`，最多一次，2 秒超时。
 - `KnowledgeSearchTool`：`read_only=True`，最多三次，10 秒超时。
 - SQLite `locked/busy/timeout/unable to open` 会转换成临时错误并重试。
-- 未知异常默认永久失败，避免在 E2 幂等完成前重复产生副作用。
+- 未知异常默认永久失败（幂等保护上线后，这一保守策略继续保留）。
 - `ToolRegistry.execute()` 负责超时、退避、错误分类和执行 metadata。
 - `tool_result` 事件会携带 `attempt_count`、`retry_count`、`retry_delays_ms`、
   `duration_ms`、`error_code`、`retryable` 和 `timed_out`。
@@ -478,7 +481,7 @@ SQLite locked 自动重试。
 
 `docs/tutorials/19-工具执行政策与重试.md`
 
-教程包含 15 个面试问答。E2 完成后要在该文件中继续补充幂等、并发和 exactly-once 问答。
+教程的 E1 部分包含 15 个面试问答；E2 幂等问答（第 16～23 题）已补充在同一文件。
 
 ## 当前 API 概览
 
@@ -569,6 +572,7 @@ practice_questions
 practice_attempts
 practice_progress
 model_connections
+tool_executions
 llm_usage
 ```
 
@@ -659,179 +663,75 @@ deepseek-v4-pro
 - 不同 OpenAI 兼容平台的所有错误格式。
 - 网络断开、超时、限流和部分流中断。
 
-## E2 下一步必须完成：工具执行幂等保护
+## E2 已完成：工具执行幂等保护
 
-### 用户场景
+不要把 E2 当成未完成项重做。当前实现已经进入 `cfaab58`。
 
-同一轮里模型或网络重试可能再次提交同一个 `tool_call`。如果工具有副作用，例如发送邮件、
-创建日历、提交作业或扣费，重复执行会造成真实事故。
-
-E1 已经保证临时错误可以有限重试，但目前仍是 at-least-once：失败后重新执行可能发生多次。
-E2 必须让相同业务请求只产生一次副作用，并让后来的重复请求返回第一次的结果。
-
-### 必须先读的代码
-
-```text
-backend/src/teachx/runtime/tools.py
-backend/src/teachx/runtime/engine.py
-backend/src/teachx/storage/database.py
-backend/src/teachx/storage/repository.py
-backend/tests/test_tool_reliability.py
-```
-
-### 推荐接口改动
-
-当前 `ToolContext` 只有 `session_id`、`user_id`、`is_admin` 和 `knowledge_bases`。
-E2 需要稳定标识一次具体工具调用：
-
-```text
-turn_id + call_id + tool_name + arguments_hash
-```
-
-推荐改动：
-
-1. 给 `ToolContext` 增加 `turn_id: str = ""`。
-2. 给 `ToolRegistry.execute()` 增加显式 `call_id: str = ""`。
-3. `AgentRuntime` 调用工具时传入 `context.turn_id` 和 `call.id`。
-4. 在 Registry 或独立的 `ToolExecutionStore` 中生成 idempotency key。
-5. Registry 仍然是 Agent Loop 的外部接缝，AgentRuntime 不直接操作执行记录表。
-
-不要把幂等键写成随机 UUID。随机键会让重试生成新键，无法去重。
-
-### 推荐幂等键
-
-参数先做 canonical JSON：
+### 接口
 
 ```python
-json.dumps(
-    arguments,
-    ensure_ascii=False,
-    sort_keys=True,
-    separators=(",", ":"),
-    default=str,
-)
+ToolContext(session_id=..., user_id=..., is_admin=..., knowledge_bases=..., turn_id=...)
+ToolRegistry.execute(name, arguments, context, call_id="...")
+ToolExecutionStore(database, stale_seconds=300.0)
 ```
 
-然后计算 SHA-256。业务键建议为：
+幂等键（`runtime/tool_executions.py::compute_idempotency_key`）：
 
 ```text
-sha256(
-    user_id
-    + session_id
-    + turn_id
-    + call_id
-    + tool_name
-    + arguments_hash
-)
+sha256(user_id | session_id | turn_id | call_id | tool_name | sha256(canonical_json(arguments)))
 ```
 
-必须包含 `user_id`，否则两个用户使用相同参数时可能互相读取执行结果。
+参数先做 canonical JSON（`sort_keys=True`、`separators=(",", ":")`）再取 SHA-256。
+数据库只存参数 hash，不存原始参数。键包含 `user_id`，用户之间不共享执行记录。
 
-不要把原始参数直接保存到数据库。E3 还会做参数脱敏；E2 至少只保存 hash。
-
-### 推荐数据库表
-
-表名：`tool_executions`
+### 数据库
 
 ```text
-idempotency_key TEXT PRIMARY KEY
-user_id TEXT NOT NULL
-session_id TEXT NOT NULL
-turn_id TEXT NOT NULL
-call_id TEXT NOT NULL
-tool_name TEXT NOT NULL
-arguments_hash TEXT NOT NULL
-read_only INTEGER NOT NULL DEFAULT 1
-status TEXT NOT NULL  -- running / completed / failed
-result_content TEXT NOT NULL DEFAULT ''
-result_metadata TEXT NOT NULL DEFAULT '{}'
-error_content TEXT NOT NULL DEFAULT ''
-attempt_count INTEGER NOT NULL DEFAULT 0
-created_at REAL NOT NULL
-updated_at REAL NOT NULL
+tool_executions 表（idempotency_key TEXT PRIMARY KEY）
+索引：(user_id, created_at DESC)、(turn_id, call_id)
+旧库由 Database.initialize() 的 CREATE TABLE IF NOT EXISTS 自动迁移。
 ```
 
-建议索引：
+### 当前行为
 
-```text
-(user_id, created_at DESC)
-(turn_id, call_id)
-```
+- `turn_id` 为空时（例如测试里直接调用 Registry）不启用幂等，保持 E1 行为。
+- 执行前先 `INSERT OR IGNORE` 一条 `running` 记录；插入成功才执行工具。
+- 插入冲突：completed 重放原结果；永久失败重放失败终态；可重试失败允许接管重新执行。
+- `running` 记录短暂轮询等待（最多 5 秒），等不到返回
+  `error_code = tool_execution_in_progress`。
+- `running` 超过 `TEACHX_TOOL_EXECUTION_STALE_SECONDS` 视为可接管（崩溃恢复）。
+- 重放结果保留原来的 `sources`、`success` 和业务 metadata，只追加去重标记。
+- `tool_result` 事件新增 `deduplicated`、`replayed`、`execution_status`、
+  `idempotency_key_hash`（前 16 位）。
 
-### 执行流程
-
-```text
-计算 idempotency key
-→ 尝试原子 INSERT status=running
-→ 插入成功：这是第一个请求，执行工具
-→ 插入冲突：读取已有记录
-   → completed：直接返回保存结果，deduplicated=true
-   → failed：返回保存的终态，deduplicated=true
-   → running：返回 tool_execution_in_progress 或短暂等待后重读
-→ 工具执行结束后更新终态、结果、attempt_count 和 updated_at
-```
-
-第一版优先保证正确性和可测试性。`running` 状态可以减少，不要为了追求“绝不返回
-in_progress”引入复杂分布式锁。SQLite 单机场景用唯一键和原子插入即可。
-
-### 返回 metadata
-
-至少增加：
-
-```text
-deduplicated: true / false
-replayed: true / false
-idempotency_key_hash: 前 12~16 位
-execution_status: running / completed / failed
-```
-
-重放结果仍然要保留原来的 `sources`、`success` 和工具业务 metadata。
-
-### 必须覆盖的测试
-
-1. 第一次调用正常执行并写入执行记录。
-2. 第二个相同调用返回原结果，底层工具只执行一次。
-3. 永久失败终态可以被重放，不重新执行工具。
-4. 相同参数在不同 `turn_id` 或 `call_id` 下不会被误去重。
-5. 不同用户使用相同参数不能共享执行记录。
-6. 并发重复请求只有一个请求能获得执行权。
-7. `AgentRuntime` 事件包含 `deduplicated` 或 `replayed` metadata。
-8. 数据库迁移可从旧库安全创建新表。
-
-测试不要依赖真实时间或真实网络。SQLite 使用 `tmp_path`，工具使用可计数的 Mock。
-
-### 配置建议
+### 配置
 
 ```text
 TEACHX_TOOL_IDEMPOTENCY_ENABLED=true
 TEACHX_TOOL_EXECUTION_STALE_SECONDS=300
 ```
 
-第一版至少实现开关。stale 超时用于把长时间停在 `running` 的记录视为可恢复，
-但只有在确认旧执行不会再写入后才能安全接管。
+### 测试
 
-### 常见坑
+```text
+backend/tests/test_tool_idempotency.py
+```
 
-- 不要把随机 UUID 当作 idempotency key。
-- 不要只用 `call_id`，它可能在不同 turn 或用户中重复。
-- 不要先执行工具，再尝试写幂等记录。
-- 不要在冲突后直接重新执行工具。
-- 不要把原始 arguments、API Key 或敏感结果明文保存。
-- 不要在重放时丢掉原来的 sources 和 metadata。
+10 个测试覆盖：首次执行并记录、重复调用重放且工具只执行一次、永久失败终态重放、
+不同 turn/call 不误去重、跨用户不共享记录、并发重复只有一个执行权、Runtime 事件携带
+dedup 元数据、旧库迁移建表、可重试失败接管、无 turn_id 不启用幂等。
 
-### E2 文档要求
+### 真实验证
 
-更新教程 19，新增：
+Mock 后端 + 真实 WebSocket 发送“请计算 7 * 9”：`tool_result` 事件携带
+`execution_status = completed` 和 16 位 `idempotency_key_hash`；`tool_executions`
+表出现 `calculator / completed / attempt_count = 1` 记录，原始参数未落库。
 
-- exactly-once、at-least-once 和 idempotency 的区别。
-- 幂等键为什么必须稳定且按用户隔离。
-- 为什么用 SHA-256 和 canonical JSON。
-- 原子 INSERT + 唯一键如何解决并发。
-- running / completed / failed 状态与 stale 恢复。
-- 面试追问题：为什么数据库唯一约束比内存字典可靠？
-- 面试追问题：如果工具返回成功但更新数据库失败，应该怎么办？
+### 教程
 
-完成后更新 README、roadmap、architecture 和本文件，分别提交 `feat:` 与 `docs:`。
+教程 19（`docs/tutorials/19-工具执行政策与重试.md`）已扩展幂等章节和第 16～23 题
+面试问答，覆盖 exactly-once/at-least-once、canonical JSON、唯一约束、并发、stale
+恢复和“工具成功但写终态失败”等追问题。E3 完成后继续在该教程补充参数脱敏问答。
 
 ## 下一步优先级
 
@@ -840,8 +740,8 @@ TEACHX_TOOL_EXECUTION_STALE_SECONDS=300
 | 顺序 | 任务 | 状态 |
 | --- | --- | --- |
 | E1 | 工具执行政策、超时和有限重试 | 已完成 |
-| E2 | 工具执行幂等保护 | 下一步，详细设计见本文 |
-| E3 | 敏感工具参数脱敏 | 等待 E2 |
+| E2 | 工具执行幂等保护 | 已完成 |
+| E3 | 敏感工具参数脱敏 | 下一步 |
 | E4 | 多工具执行策略和稳定结果顺序 | 等待 E3 |
 | E5 | 整回合超时、最大轮数和断线提示 | 等待 E4 |
 | E6 | Evaluation 与 Observability | E1～E5 后优先做 |
@@ -851,8 +751,8 @@ TEACHX_TOOL_EXECUTION_STALE_SECONDS=300
 | E10 | Model Routing 与 Durable Workflow | 计划中 |
 | E11 | 部署、Q3 测试和 Q4 展示 | 计划中 |
 
-不要跳过 E2 直接做 E4 或 E6。当前工具执行已经具备重试，但没有幂等保护；
-多工具并发必须先建立在“重复执行安全”的基础上。
+不要跳过 E3 直接做 E4 或 E6。E3 的参数脱敏要以 E2 的执行记录为落点：脱敏后的参数
+进入事件、数据库和日志，幂等键继续使用原始参数的 hash，避免脱敏规则变化导致去重失效。
 
 ## 已知限制与坑
 
@@ -867,7 +767,8 @@ TEACHX_TOOL_EXECUTION_STALE_SECONDS=300
 - `TEACHX_AUTH_SECRET` 变化会使已有用户模型 Key 无法解密。
 - 日预算默认关闭；真实模型测试仍应少打、短问，优先使用 Mock。
 - usage 依赖供应商返回值；缺失时 TeachX 会估算并标记 `estimated`。
-- 工具有有限重试，但还没有幂等执行记录，有副作用工具暂不能安全重复执行。
+- 工具有有限重试和幂等执行记录；相同业务请求只产生一次副作用，但“执行成功后写终态
+  失败”的窗口在 stale 接管时仍可能重复执行副作用，教程 19 有说明。
 - 还没有固定评测数据集、离线回放、Recall@K/MRR、trace 和回归 dashboard。
 - 还没有 MCP Client/Server、完整权限审批和沙箱执行。
 - 还没有模型复杂度路由和可恢复的 durable workflow。
@@ -925,8 +826,9 @@ TEACHX_TOOL_EXECUTION_STALE_SECONDS=300
 docs/tutorials/19-工具执行政策与重试.md
 ```
 
-E2 完成后必须在教程 19 增加幂等、canonical JSON、唯一约束、并发、stale execution 和
-exactly-once/at-least-once 的面试问答，不能只更新代码不更新教程。
+教程 19 已包含 E2 的幂等、canonical JSON、唯一约束、并发、stale execution 和
+exactly-once/at-least-once 面试问答。E3 完成后要在同一教程继续补充参数脱敏问答，
+不能只更新代码不更新教程。
 
 ## Git 和提交规范
 
@@ -972,18 +874,18 @@ cat docs/research/2026-AI岗位技术栈调研.md
 
 然后：
 
-1. 如果任务是 Agent 稳定性，从 E2 工具执行幂等保护开始。
+1. 如果任务是 Agent 稳定性，从 E3 敏感工具参数脱敏开始。
 2. 如果任务是展示材料，从“P3：Q4 展示材料”开始。
 3. 如果不确定，先向用户确认优先级，不要默认重做已完成功能。
 
 ## 交接完成检查
 
-- [x] 最新功能提交 `502bbcd` 已完成 E1。
-- [x] 当前文档提交已补教程 19 和本交接文件（具体哈希以 `git log` 为准）。
+- [x] 最新功能提交 `cfaab58` 已完成 E2。
+- [x] 当前文档提交已更新教程 19、README、roadmap、architecture 和本文件（具体哈希以 `git log` 为准）。
 - [x] `main` 已推送并与 `origin/main` 同步。
-- [x] `./scripts/check.sh` 当前为 `45 passed`。
+- [x] `./scripts/check.sh` 当前为 `55 passed`。
 - [x] 前端生产构建为 47 routes。
-- [x] E2 的接口、表结构、幂等键、状态机、测试和文档要求已写入本文。
+- [x] E2 的幂等键、状态机、并发、stale 接管、测试和教程问答已落地。
 - [x] 已知前端无关失败和敏感文件边界已明确记录。
 - [x] 用户要求的“教程包含面试问答”已同步到 `AGENTS.md` 和文档指南。
 
@@ -995,8 +897,8 @@ docs/architecture.md、README.md、docs/tutorials/README.md、
 docs/documentation-guide.md 和 docs/research/2026-AI岗位技术栈调研.md。
 
 不要从零重做，不要删除本地数据或 Secret，不要让自动测试调用真实模型。
-先检查 git status、最近提交和 ./scripts/check.sh。E1 已完成，下一项是 E2：
-工具执行幂等保护，详细设计见 docs/HANDOFF.md，不要重做 E1。
+先检查 git status、最近提交和 ./scripts/check.sh。E1、E2 已完成，下一项是 E3：
+敏感工具参数脱敏，方向见 docs/roadmap.md 的近期执行计划，不要重做 E1/E2。
 
 每次任务结束前都要做文档判定。新功能必须补适合基础读者的中文教程，教程中至少
 包含 8 个面试问答；更新 README/roadmap/HANDOFF，做浏览器或 API 验证，commit、push。

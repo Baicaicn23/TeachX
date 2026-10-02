@@ -40,22 +40,30 @@ Next.js Web 界面
 4. 继续调用模型，直到得到最终回答或达到最大轮数。
 5. 保存用户消息、助手消息和完整事件。
 
-## 工具执行政策
+## 工具执行政策与幂等
 
 ```text
 AgentRuntime
-→ ToolRegistry.execute()
+→ ToolRegistry.execute(name, arguments, context, call_id)
 → 合并工具自身 ToolPolicy 与 Registry 默认值
-→ 单次执行超时
-→ 临时错误按指数退避有限重试
-→ 返回统一 ToolResult 与执行 metadata
+→ 计算幂等键（user_id + session_id + turn_id + call_id + tool_name + 参数指纹）
+→ ToolExecutionStore 原子登记（INSERT OR IGNORE，唯一键）
+→ 未登记过：单次执行超时 + 临时错误按指数退避有限重试
+→ 已登记：重放 completed 结果 / 永久失败终态；stale running 或可重试失败可接管
+→ 返回统一 ToolResult 与执行、去重 metadata
 ```
 
 `ToolError` 表示永久失败，不重试；`ToolTransientError` 表示临时失败；`ToolTimeoutError`
-表示单次执行超时。未知异常默认按永久失败处理，避免在没有幂等保证时重复产生副作用。
+表示单次执行超时。未知异常默认按永久失败处理。
 
-`ToolPolicy` 同时声明 `read_only`，为后续幂等保护和多工具并发提供统一语义。当前重试
-只能保证 at-least-once 行为；E2 新增幂等键和执行记录后，才能安全重试有副作用工具。
+幂等键只保存参数的 SHA-256 指纹，不保存原始参数；键按用户隔离，跨用户不共享执行
+记录。`tool_executions` 表的唯一约束是并发控制的核心：同一业务请求并发到达时，只有
+一个请求能插入 `running` 记录并获得执行权，其余请求重放或短暂等待。进程在写终态前
+崩溃时，超过 `TEACHX_TOOL_EXECUTION_STALE_SECONDS` 的 `running` 记录允许被接管，
+这是崩溃恢复手段，stale 时间必须大于工具最大执行时长。
+
+`ToolPolicy.read_only` 的语义继续保留给 E4：只读工具将有上限并发执行，有副作用工具
+保持串行。
 
 ## 知识库链路
 
