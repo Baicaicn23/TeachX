@@ -2,7 +2,7 @@
 
 > 最后更新：2026-10-02
 >
-> 功能基线：`483dddb`；接手时使用 `git log -1` 查看最新提交。
+> 功能基线：`07e5a1a`；接手时使用 `git log -1` 查看最新提交。
 > 用途：新的 Codex Agent、开发者或贡献者恢复项目上下文，并直接继续开发。
 
 ## 给下一个 Agent 的第一条指令
@@ -46,7 +46,7 @@ TeachX 是一个 Web 优先的 AI 学习平台：
 
 ## 当前完成度
 
-截至 `483dddb`：
+截至 `07e5a1a`：
 
 - P0 Web 垂直切片：完成。
 - P1 流式 Agent Runtime：核心完成，DeepSeek Flash 已真实验证。
@@ -60,14 +60,16 @@ TeachX 是一个 Web 优先的 AI 学习平台：
 - U6 对话中的学习目标：完成。
 - 用户级模型连接：完成。
 - DeepSeek Flash：真实 `/models`、流式文本、工具调用、浏览器聊天已验证。
+- Agent 费用控制：完成，包含真实/估算 usage、输出与上下文上限、日预算和错误事件。
 
-后端自动测试当前为 `30 passed`。前端生产构建为 `47` 条路由。
+后端自动测试当前为 `38 passed`。前端生产构建为 `47` 条路由。
 
-当前下一步是 **Q2：Agent 稳定性与费用控制**。
+当前下一步是 **Q2：工具调用重试、幂等和多工具策略**。
 
 ## 最近提交
 
 ```text
+07e5a1a feat: add token usage and daily budget controls
 483dddb docs: add model connection tutorial
 17c516c feat: add user model connections
 5484b10 docs: add learning goal tutorial
@@ -94,6 +96,9 @@ TEACHX_EMBEDDING_PROVIDER=mock
 TEACHX_AUTH_ENABLED=true
 TEACHX_AUTH_COOKIE_SECURE=false
 ```
+
+本地费用控制当前使用默认值；`TEACHX_DAILY_TOKEN_BUDGET=0` 表示关闭日预算，
+`TEACHX_GENERATE_TITLES=false` 表示不额外调用模型生成标题。
 
 同时包含：
 
@@ -205,7 +210,7 @@ npm run build
 当前预期：
 
 ```text
-30 passed
+38 passed
 typecheck passed
 47 Next.js routes built
 ```
@@ -221,6 +226,7 @@ Next.js Chat UI
 → 选择当前用户激活的模型连接
 → OpenAICompatibleProvider 或平台默认 Provider
 → AgentRuntime
+→ UsageService 记录 token 和检查日预算
 → ToolRegistry
 → SessionRepository
 ```
@@ -282,6 +288,7 @@ Next.js Chat UI
 | `backend/src/teachx/runtime/prompts.py` | 系统提示词、学习档案和目标注入 |
 | `backend/src/teachx/runtime/tools.py` | 工具注册、计算器、知识检索 |
 | `backend/src/teachx/providers/openai_compat.py` | OpenAI 兼容流式和工具参数拼接 |
+| `backend/src/teachx/usage/service.py` | token 用量持久化、按日预算统计和本地用户映射 |
 | `backend/src/teachx/storage/database.py` | SQLite schema 与迁移 |
 | `backend/src/teachx/storage/repository.py` | 会话、消息、反馈和事件持久化 |
 | `backend/src/teachx/auth/service.py` | 用户、JWT、学习档案 |
@@ -405,6 +412,7 @@ practice_questions
 practice_attempts
 practice_progress
 model_connections
+llm_usage
 ```
 
 用户档案关键字段：
@@ -496,35 +504,21 @@ deepseek-v4-pro
 
 ## 下一步优先级
 
-### P0：费用控制和真实 Provider 稳定性
+### P0：Agent 稳定性剩余项
 
-这是下一位 Agent 最应该先做的内容。
+费用控制已完成，当前下一步是：
 
-现状风险：
-
-- 当前 Provider 没有记录真实 token usage。
-- 没有 `max_tokens` 输出上限。
-- 历史消息和知识片段每轮都会重新发送。
-- 新会话第一轮会额外调用一次模型生成标题。
-- Agent Loop 最多 6 轮。
-- 没有用户级每日预算或超预算自动回退。
-
-建议实现顺序：
-
-1. 捕获并持久化 prompt/completion/total tokens。
-2. 在消息底部显示每次和会话累计 token。
-3. 增加 `max_output_tokens` 配置并传给 Provider。
-4. 限制历史消息数量和工具返回长度。
-5. 允许关闭模型标题生成，默认使用本地截断标题。
-6. 增加用户每日预算和超限行为：阻止真实调用或回退 Mock。
-7. 为超时、429、5xx 和断流增加明确错误事件。
+1. 为工具调用增加重试和幂等保护。
+2. 设计多工具并行执行和结果顺序。
+3. 对敏感工具参数做脱敏后再进入事件和日志。
+4. 为最大回合数、超时和断线恢复提供更明确的用户提示。
 
 验收要求：
 
-- 自动测试仍强制 Mock。
-- 新增费用逻辑必须有正常路径、超预算路径和失败路径测试。
-- 浏览器能看见本回合 token 和预算状态。
-- 不泄露 Key、不把成本单位写死为单一供应商价格。
+- 不重复执行有副作用的工具。
+- 多工具结果顺序可解释。
+- 敏感参数不会出现在前端事件或持久化日志。
+- 自动测试继续强制 Mock。
 
 ### P1：真实 Embedding
 
@@ -557,7 +551,8 @@ deepseek-v4-pro
 - 旧的 `/learning/practice` 页面保留兼容；新的普通用户练习入口是 `/practice`。
 - 模型连接只用于聊天 Provider，不用于 Embedding。
 - `TEACHX_AUTH_SECRET` 变化会使已有用户模型 Key 无法解密。
-- 当前没有费用预算保护，真实模型测试要少打、短问、优先 Mock。
+- 日预算默认关闭；真实模型测试仍应少打、短问，优先使用 Mock。
+- usage 依赖供应商返回值；缺失时 TeachX 会估算并标记 `estimated`。
 - Docker、PostgreSQL 和管理员用户管理不是当前阻塞项。
 
 ## 开发规则
@@ -626,7 +621,7 @@ cat docs/roadmap.md
 
 然后：
 
-1. 如果任务是费用控制，从“P0：费用控制和真实 Provider 稳定性”开始。
+1. 如果任务是 Agent 稳定性，从“P0：Agent 稳定性剩余项”开始。
 2. 如果任务是展示材料，从“P3：Q4 展示材料”开始。
 3. 如果不确定，先向用户确认优先级，不要默认重做已完成功能。
 

@@ -64,8 +64,28 @@ Mock Embedding 用于本地开发，真实环境可切换 OpenAI 兼容 Embeddin
 - `complete()`：一次性返回完整结果，适合标题生成等短任务。
 - `stream()`：逐段产生内容，适合用户可见的正常回答。
 
+调用还会返回可选的 `LLMUsage`，包含 prompt、completion、total token 和耗时信息；
+Provider 自身负责把超时、429、5xx、连接失败和流中断转换成稳定的 `ProviderError`。
+`max_output_tokens` 由 Provider 适配层映射到对应请求参数，不进入 Agent Loop 的业务逻辑。
+
 OpenAI 兼容 Provider 会累计流式工具参数。因为真实模型可能把
 `{"expression": "2 + 3"}` 拆成多个片段发送，不能假设参数一次到齐。
+
+## 费用与上下文预算
+
+```text
+AgentRuntime
+→ 检查用户今日 billable token
+→ 裁剪历史消息和工具结果
+→ Provider 调用
+→ UsageService 写入 llm_usage
+→ usage_summary 写入助手消息事件
+→ 前端显示本轮、会话累计和每日预算
+```
+
+每日预算按服务所在时区的自然日统计，只计算真实 Provider 调用。超限默认阻止后续
+真实调用，也可以配置为回退 Mock；回退会在 `done` 事件中明确标记。自动测试始终
+强制 Mock，不能读取本地真实 Key。
 
 ## 认证边界
 

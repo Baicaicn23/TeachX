@@ -53,6 +53,7 @@ P0、P1、P2 已完成，P3 的认证、用户隔离和个人资料基础也已�
 | 练习与复习 | 从知识库片段生成开放题，自评后安排复习，并按知识库展示掌握度 |
 | 对话中的学习目标 | 聊天页显示目标、进度和完成状态，修改目标自动重新激活并进入后续回答提示词 |
 | 模型连接 | 可选择平台默认，或保存并激活 DeepSeek、OpenAI、自定义 OpenAI 兼容平台 |
+| Agent 费用控制 | 记录真实或估算 token，限制输出、历史和工具上下文，支持每日预算与超限阻止/回退 |
 | 容器部署 | 暂缓，不作为当前开发阻塞；配置文件保留备用 |
 | 持续集成 | 后端检查与前端生产构建 |
 
@@ -62,7 +63,8 @@ P1 的核心开发已经完成：`complete` 与 `stream` 双接口、真实 toke
 P2 已经完成：知识库创建、文档上传、文本提取、段落切块、SQLite FTS5、Embedding
 向量索引、RRF 混合排序、`knowledge_search` 工具和 `sources` 引用事件都能端到端运行。
 P3 认证与资源隔离已经完成，普通用户的核心学习闭环也已覆盖引导、个性化、反馈、
-练习复习、学习目标和用户级模型连接；下一阶段进入 Agent 稳定性与部署准备。
+练习复习、学习目标和用户级模型连接。Agent 费用控制、Provider 错误映射和上下文
+预算也已完成；下一阶段继续工具重试、多工具执行和真实 Embedding。
 管理员功能、PostgreSQL 和 Docker 继续暂缓，不作为当前开发阻塞。
 
 ## 为什么使用 TeachX
@@ -159,6 +161,19 @@ export TEACHX_EMBEDDING_PROVIDER=openai
 export TEACHX_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
+费用控制默认启用保守的上下文和输出上限。需要设置用户每日预算时：
+
+```bash
+export TEACHX_MAX_OUTPUT_TOKENS=1024
+export TEACHX_MAX_HISTORY_MESSAGES=24
+export TEACHX_MAX_TOOL_RESULT_CHARS=6000
+export TEACHX_DAILY_TOKEN_BUDGET=100000
+export TEACHX_BUDGET_EXCEEDED_ACTION=block
+```
+
+`0` 表示关闭日预算；超限行为可选择 `block` 或 `mock`。模型标题生成默认关闭，
+需要额外标题调用时设置 `TEACHX_GENERATE_TITLES=true`。
+
 ## 启用登录认证
 
 默认情况下，本地开发关闭认证。需要使用用户系统时设置：
@@ -215,6 +230,11 @@ NEXT_PUBLIC_AUTH_ENABLED=true
 - 模型连接页支持 DeepSeek、OpenAI 和自定义 OpenAI 兼容平台
 - 支持测试连接、读取模型列表、选择默认模型和切换平台默认模型
 - 用户 API Key 使用服务端密钥加密存储，接口不回传明文或密文
+- 每次模型调用记录 prompt、completion、total token、估算标记和调用耗时
+- 助手回答下方展示本轮与当前会话累计 token，并显示每日预算状态
+- 输出 token、历史消息、历史字符和工具结果都有可配置上限
+- 超预算可阻止真实调用或回退 Mock，并在事件中明确标记
+- 超时、429、5xx、连接失败和流中断转换为稳定错误事件
 - 后端和前端生产 Dockerfile
 - GitHub Actions 后端检查和前端生产构建
 - Docker 配置文件保留备用，当前暂停验证
@@ -288,6 +308,7 @@ npm run build
 - [15：练习与复习模式](docs/tutorials/15-练习与复习模式.md)
 - [16：对话中的学习目标](docs/tutorials/16-对话中的学习目标.md)
 - [17：用户模型连接与多平台](docs/tutorials/17-用户模型连接与多平台.md)
+- [18：Agent 费用控制与 Provider 稳定性](docs/tutorials/18-Agent费用控制与Provider稳定性.md)
 
 ## 开发路线
 

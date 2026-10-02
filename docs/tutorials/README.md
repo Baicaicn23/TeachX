@@ -35,6 +35,7 @@
 | [15](15-练习与复习模式.md) | 知识库出题、自评、复习间隔、掌握度和练习队列 | `practice/service.py`、`practice-review-api.ts` |
 | [16](16-对话中的学习目标.md) | 目标进度、完成状态、提示词注入、重新激活和聊天状态条 | `LearningGoalStatus.tsx`、`runtime/prompts.py` |
 | [17](17-用户模型连接与多平台.md) | 平台默认、用户模型连接、Key 加密、模型测试和 Provider 切换 | `model_connections/service.py`、`model-connections/page.tsx` |
+| [18](18-Agent费用控制与Provider稳定性.md) | token usage、输出和上下文预算、日预算、错误映射与费用验收 | `providers/`、`runtime/engine.py`、`usage/service.py` |
 
 ## 项目路线图
 
