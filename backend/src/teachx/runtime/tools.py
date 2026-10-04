@@ -42,6 +42,8 @@ class ToolPolicy:
 
     ``None`` values inherit the registry defaults. This lets a tool override only
     the property it cares about without duplicating global execution policy.
+    ``sensitive_arguments`` lists parameter names whose values must never appear
+    in events, persisted records, or logs; the registry replaces them with ``***``.
     """
 
     read_only: bool = True
@@ -49,6 +51,12 @@ class ToolPolicy:
     timeout_seconds: float | None = None
     retry_base_delay_seconds: float | None = None
     retry_max_delay_seconds: float | None = None
+    sensitive_arguments: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        for field_name in self.sensitive_arguments:
+            if not isinstance(field_name, str) or not field_name:
+                raise ValueError("sensitive_arguments must be non-empty strings")
 
 
 @dataclass(slots=True, frozen=True)
@@ -271,11 +279,13 @@ class ToolRegistry:
         defaults: ToolExecutionDefaults | None = None,
         execution_store: ToolExecutionStore | None = None,
         idempotency_enabled: bool = True,
+        redaction_enabled: bool = True,
     ) -> None:
         self._tools: dict[str, BaseTool] = {}
         self.defaults = defaults or ToolExecutionDefaults()
         self.execution_store = execution_store
         self.idempotency_enabled = idempotency_enabled
+        self.redaction_enabled = redaction_enabled
 
     def register(self, tool: BaseTool) -> None:
         self._tools[tool.name] = tool
@@ -320,10 +330,53 @@ class ToolRegistry:
             return idempotency_key
 
         result = await self._execute_with_policy(name, tool, arguments, context, policy)
+        if self.redaction_enabled and policy["sensitive_arguments"]:
+            result = self._redact_result_metadata(result, policy["sensitive_arguments"])
         if idempotency_key:
             result = self._with_idempotency_metadata(result, idempotency_key)
             await self._persist_execution(idempotency_key, result)
         return result
+
+    def redacted_arguments(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Arguments safe for events, records, and logs.
+
+        The Agent Loop uses this when emitting ``tool_call`` events; the raw
+        arguments still go to the tool and the model unchanged.
+        """
+        tool = self.get(name)
+        if tool is None or not self.redaction_enabled:
+            return dict(arguments)
+        policy = self._resolve_policy(tool)
+        return redact_arguments(arguments, policy["sensitive_arguments"])
+
+    @staticmethod
+    def _redact_result_metadata(
+        result: ToolResult,
+        sensitive_fields: tuple[str, ...],
+    ) -> ToolResult:
+        """Mask metadata keys that echo a declared sensitive argument name.
+
+        This is a defensive sweep for tools that copy an argument (for example
+        ``api_key``) back into their result metadata; without it the value
+        would leak into events and the ``tool_executions`` record.
+        """
+        metadata = dict(result.metadata or {})
+        changed = False
+        for field_name in sensitive_fields:
+            if field_name in metadata:
+                metadata[field_name] = REDACTED_VALUE
+                changed = True
+        if not changed:
+            return result
+        return ToolResult(
+            content=result.content,
+            success=result.success,
+            metadata=metadata,
+        )
 
     async def _claim_execution(
         self,
@@ -573,6 +626,7 @@ class ToolRegistry:
                 retry_base_delay_seconds,
                 retry_max_delay_seconds,
             ),
+            "sensitive_arguments": policy.sensitive_arguments,
         }
 
     def _with_execution_metadata(
@@ -640,11 +694,13 @@ def build_default_registry(
     defaults: ToolExecutionDefaults | None = None,
     execution_store: ToolExecutionStore | None = None,
     idempotency_enabled: bool = True,
+    redaction_enabled: bool = True,
 ) -> ToolRegistry:
     registry = ToolRegistry(
         defaults,
         execution_store=execution_store,
         idempotency_enabled=idempotency_enabled,
+        redaction_enabled=redaction_enabled,
     )
     registry.register(CalculatorTool())
     registry.register(KnowledgeSearchTool(knowledge_service))
@@ -657,3 +713,23 @@ def _is_transient_sqlite_error(error: sqlite3.OperationalError) -> bool:
         marker in message
         for marker in ("locked", "busy", "timeout", "temporarily", "unable to open")
     )
+
+
+REDACTED_VALUE = "***"
+
+
+def redact_arguments(
+    arguments: dict[str, Any],
+    sensitive_fields: tuple[str, ...],
+) -> dict[str, Any]:
+    """Return a copy of arguments with declared sensitive values masked.
+
+    Only top-level field names declared by the tool are masked. The raw
+    arguments must still reach the tool itself and the model; redaction is
+    for observability surfaces (events, records, logs) only.
+    """
+    redacted = dict(arguments)
+    for field_name in sensitive_fields:
+        if field_name in redacted:
+            redacted[field_name] = REDACTED_VALUE
+    return redacted

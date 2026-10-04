@@ -241,7 +241,9 @@ class AgentRuntime:
                                 "call_kind": "tool",
                                 "call_state": "running",
                                 "tool": call.name,
-                                "arguments": call.arguments,
+                                "arguments": self.tools.redacted_arguments(
+                                    call.name, call.arguments
+                                ),
                                 "round": round_index + 1,
                             },
                         )

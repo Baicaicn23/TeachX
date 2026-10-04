@@ -70,6 +70,7 @@ async def lifespan(app: FastAPI):
         ),
         execution_store=execution_store,
         idempotency_enabled=settings.tool_idempotency_enabled,
+        redaction_enabled=settings.tool_redaction_enabled,
     )
     provider = build_provider(settings)
     runtime = AgentRuntime(
