@@ -25,6 +25,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from teachx.config import get_settings
 from teachx.evals.metrics import hit_at_k, mean, recall_at_k, reciprocal_rank
 from teachx.knowledge.embeddings import build_embedding_provider
 from teachx.knowledge.service import KnowledgeService
@@ -48,8 +49,19 @@ def load_dataset(path: Path) -> dict[str, Any]:
     return data
 
 
-async def run_eval(dataset_path: Path, *, k_values: tuple[int, ...] = K_VALUES) -> dict[str, Any]:
-    """建临时知识库 → 灌入语料 → 逐题检索 → 计算指标。"""
+async def run_eval(
+    dataset_path: Path,
+    *,
+    k_values: tuple[int, ...] = K_VALUES,
+    embedding_provider: str = "mock",
+    embedding_model: str | None = None,
+) -> dict[str, Any]:
+    """建临时知识库 → 灌入语料 → 逐题检索 → 计算指标。
+
+    embedding_provider 默认 mock(hash 哑向量,确定性、零消耗);传 "openai"
+    时走真实 Embeddings API(需要 OPENAI_API_KEY / OPENAI_BASE_URL 指向支持
+    embeddings 的平台),用于 E8 的前后对比。
+    """
     dataset = load_dataset(dataset_path)
     max_k = max(k_values)
 
@@ -57,9 +69,18 @@ async def run_eval(dataset_path: Path, *, k_values: tuple[int, ...] = K_VALUES) 
         knowledge_root = Path(tmp) / "knowledge"
         database = Database(Path(tmp) / "eval.db")
         await database.initialize()
+        settings = get_settings()
         embedder = build_embedding_provider(
-            provider="mock", model="eval", api_key=None, base_url=None
+            provider=embedding_provider,
+            model=embedding_model or settings.embedding_model,
+            api_key=settings.api_key,
+            base_url=settings.base_url,
         )
+        if embedding_provider != "mock" and embedder is None:
+            raise SystemExit(
+                f"embedding provider={embedding_provider} 未构建成功,"
+                "请检查 OPENAI_API_KEY / OPENAI_BASE_URL 配置"
+            )
         service = KnowledgeService(database, knowledge_root, embedder=embedder)
         kb = dataset["knowledge_base"]
         owner = dataset["owner_id"]
@@ -98,6 +119,8 @@ async def run_eval(dataset_path: Path, *, k_values: tuple[int, ...] = K_VALUES) 
 
     return {
         "dataset": dataset.get("name", dataset_path.stem),
+        "embedding_provider": embedding_provider,
+        "embedding_model": embedding_model or "default",
         "query_count": len(rows),
         "rows": rows,
         "aggregate": {
@@ -124,7 +147,10 @@ async def _all_chunks(database: Database, kb: str) -> list[tuple[int, str]]:
 
 
 def print_report(report: dict[str, Any]) -> None:
-    print(f"评测集: {report['dataset']}  查询数: {report['query_count']}")
+    print(
+        f"评测集: {report['dataset']}  查询数: {report['query_count']}"
+        f"  Embedding: {report.get('embedding_provider', 'mock')}"
+    )
     print("-" * 72)
     for row in report["rows"]:
         hit = row["hit_at_k"][3]
@@ -159,11 +185,23 @@ def compare_with_baseline(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="TeachX RAG 检索离线评测")
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
+    parser.add_argument(
+        "--embedding-provider",
+        default="mock",
+        help="mock(默认,零消耗)或 openai(真实 Embeddings API)",
+    )
+    parser.add_argument("--embedding-model", default=None, help="覆盖嵌入模型名")
     parser.add_argument("--save", type=Path, help="把本次结果保存为基线 JSON")
     parser.add_argument("--baseline", type=Path, help="与已保存的基线对比")
     args = parser.parse_args(argv)
 
-    report = asyncio.run(run_eval(args.dataset))
+    report = asyncio.run(
+        run_eval(
+            args.dataset,
+            embedding_provider=args.embedding_provider,
+            embedding_model=args.embedding_model,
+        )
+    )
     print_report(report)
 
     if args.save:

@@ -142,6 +142,34 @@ uv run python -m teachx.evals.run_rag_eval --baseline evals/baselines/rag_retrie
   需要 LLM-as-a-Judge,属于 E6 后半部分。
 - 没有接 CI、没有趋势图表——学习版刻意省略,原理讲得清比工具炫重要。
 
+## 七点五、E8:接真实 Embedding 跑对比
+
+评测脚本已参数化,换 Provider 只需一个参数(默认 mock,自动测试永远是 Mock):
+
+```bash
+cd backend
+# 真实 Embedding 跑分(需要 OPENAI_API_KEY / OPENAI_BASE_URL 指向支持
+# embeddings 的平台;模型名用 --embedding-model 覆盖)
+uv run python -m teachx.evals.run_rag_eval \
+  --embedding-provider openai --embedding-model <平台的嵌入模型名> \
+  --save evals/baselines/rag_retrieval-real.json
+
+# 与 Mock 基线对比
+uv run python -m teachx.evals.run_rag_eval \
+  --embedding-provider openai --embedding-model <平台的嵌入模型名> \
+  --baseline evals/baselines/rag_retrieval.json
+```
+
+**实测记录(2026-10-04)**:本地唯一可用的 DeepSeek 平台探测结果为
+`/embeddings` 返回 404——该平台没有 embeddings 端点(认证本身是通过的)。
+结论:DeepSeek 只能当聊天模型,**Embedding 需要另找支持 embeddings 的
+OpenAI 兼容平台**(智谱 / 硅基流动 / DashScope / OpenAI 等),配好
+`OPENAI_API_KEY` 与 `OPENAI_BASE_URL` 后执行上面的命令即可。
+
+为什么对比有价值:当前 0.688 的 MRR 是"FTS 主导"的成绩——考卷里的查询和
+文档共享关键词。真实 Embedding 上线后,语义改写型查询("怎么求缩放倍数"
+命中特征值内容)才能被召回,同一份考卷的分数变化就是最直观的验收证据。
+
 ## 八、面试问答
 
 ### 1. 你怎么证明你的 RAG 检索是好的?
