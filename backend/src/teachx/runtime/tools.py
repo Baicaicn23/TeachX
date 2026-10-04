@@ -293,6 +293,16 @@ class ToolRegistry:
     def get(self, name: str) -> BaseTool | None:
         return self._tools.get(name)
 
+    def is_read_only(self, name: str) -> bool:
+        """Whether one tool declares itself safe for bounded concurrency.
+
+        Unknown tools answer ``False`` so the runtime schedules them serially:
+        executing an unregistered call concurrently is never required, and the
+        conservative default cannot produce duplicate side effects.
+        """
+        tool = self.get(name)
+        return bool(tool.policy.read_only) if tool is not None else False
+
     def schemas(self, enabled: list[str] | None = None) -> list[dict[str, Any]]:
         names = enabled if enabled is not None else list(self._tools)
         return [self._tools[name].schema() for name in names if name in self._tools]

@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     tool_idempotency_enabled: bool = True
     tool_execution_stale_seconds: float = Field(default=300.0, gt=0)
     tool_redaction_enabled: bool = True
+    tool_max_concurrency: int = Field(default=4, ge=1)
     generate_titles: bool = False
     include_stream_usage: bool = True
 

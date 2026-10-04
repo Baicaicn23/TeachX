@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 import uuid
@@ -18,7 +19,7 @@ from teachx.providers.base import (
 )
 from teachx.providers.mock import MockProvider
 from teachx.runtime.prompts import PROMPT_VERSION, build_system_prompt
-from teachx.runtime.tools import ToolContext, ToolRegistry
+from teachx.runtime.tools import ToolContext, ToolRegistry, ToolResult
 from teachx.schemas import SessionMessage, StartTurnCommand
 from teachx.storage.repository import SessionRepository
 from teachx.usage.service import UsageService
@@ -39,6 +40,7 @@ class AgentRuntime:
         max_history_messages: int = 24,
         max_history_chars: int = 16000,
         max_tool_result_chars: int = 6000,
+        max_tool_concurrency: int = 4,
         generate_titles: bool = False,
         daily_token_budget: int = 0,
         budget_exceeded_action: Literal["block", "mock"] = "block",
@@ -52,6 +54,7 @@ class AgentRuntime:
         self.max_history_messages = max_history_messages
         self.max_history_chars = max_history_chars
         self.max_tool_result_chars = max_tool_result_chars
+        self.max_tool_concurrency = max(1, int(max_tool_concurrency))
         self.generate_titles = generate_titles
         self.daily_token_budget = daily_token_budget
         self.budget_exceeded_action = budget_exceeded_action
@@ -228,79 +231,81 @@ class AgentRuntime:
                 finish_reason = result.finish_reason
                 if result.tool_calls:
                     messages.append(self._assistant_tool_message(result.content, result.tool_calls))
-                    for call in result.tool_calls:
-                        tool_call_count += 1
-                        yield_event = self._event(
-                            "tool_call",
-                            session_id,
-                            turn_id,
-                            command.capability,
-                            content=f"调用工具：{call.name}",
-                            metadata={
-                                "call_id": call.id,
-                                "call_kind": "tool",
-                                "call_state": "running",
-                                "tool": call.name,
-                                "arguments": self.tools.redacted_arguments(
-                                    call.name, call.arguments
-                                ),
-                                "round": round_index + 1,
-                            },
-                        )
-                        saved_events.append(yield_event)
-                        yield yield_event
-
-                        tool_result = await self.tools.execute(
-                            call.name,
-                            call.arguments,
-                            context=tool_context,
-                            call_id=call.id,
-                        )
-                        context_content = self._truncate_tool_result(tool_result.content)
-                        result_event = self._event(
-                            "tool_result",
-                            session_id,
-                            turn_id,
-                            command.capability,
-                            content=context_content,
-                            metadata={
-                                "call_id": call.id,
-                                "call_kind": "tool",
-                                "call_state": "complete",
-                                "tool": call.name,
-                                "success": tool_result.success,
-                                "context_truncated": context_content != tool_result.content,
-                                **(tool_result.metadata or {}),
-                            },
-                        )
-                        saved_events.append(result_event)
-                        yield result_event
-
-                        sources = (tool_result.metadata or {}).get("sources")
-                        if isinstance(sources, list) and sources:
-                            sources_event = self._event(
-                                "sources",
+                    # E4 多工具执行策略:连续的只读调用组成一批并发执行,
+                    # 有副作用(或未知)的工具单独串行。gather 保持批次内顺序,
+                    # 所以事件和 tool 消息始终与模型的调用顺序一致。
+                    for batch in self._plan_tool_batches(result.tool_calls):
+                        for call in batch:
+                            tool_call_count += 1
+                            yield_event = self._event(
+                                "tool_call",
                                 session_id,
                                 turn_id,
                                 command.capability,
-                                content=f"找到 {len(sources)} 条相关资料",
+                                content=f"调用工具：{call.name}",
                                 metadata={
                                     "call_id": call.id,
+                                    "call_kind": "tool",
+                                    "call_state": "running",
                                     "tool": call.name,
-                                    "sources": sources,
+                                    "arguments": self.tools.redacted_arguments(
+                                        call.name, call.arguments
+                                    ),
+                                    "round": round_index + 1,
+                                    "batch_size": len(batch),
+                                    "parallel": len(batch) > 1,
                                 },
                             )
-                            saved_events.append(sources_event)
-                            yield sources_event
+                            saved_events.append(yield_event)
+                            yield yield_event
 
-                        messages.append(
-                            {
-                                "role": "tool",
-                                "tool_call_id": call.id,
-                                "name": call.name,
-                                "content": context_content,
-                            }
-                        )
+                        outcomes = await self._execute_tool_batch(batch, tool_context)
+                        for call, tool_result in zip(batch, outcomes, strict=True):
+                            context_content = self._truncate_tool_result(tool_result.content)
+                            result_event = self._event(
+                                "tool_result",
+                                session_id,
+                                turn_id,
+                                command.capability,
+                                content=context_content,
+                                metadata={
+                                    "call_id": call.id,
+                                    "call_kind": "tool",
+                                    "call_state": "complete",
+                                    "tool": call.name,
+                                    "success": tool_result.success,
+                                    "context_truncated": context_content != tool_result.content,
+                                    **(tool_result.metadata or {}),
+                                },
+                            )
+                            saved_events.append(result_event)
+                            yield result_event
+
+                            sources = (tool_result.metadata or {}).get("sources")
+                            if isinstance(sources, list) and sources:
+                                sources_event = self._event(
+                                    "sources",
+                                    session_id,
+                                    turn_id,
+                                    command.capability,
+                                    content=f"找到 {len(sources)} 条相关资料",
+                                    metadata={
+                                        "call_id": call.id,
+                                        "tool": call.name,
+                                        "sources": sources,
+                                    },
+                                )
+                                saved_events.append(sources_event)
+                                yield sources_event
+
+                            messages.append(
+                                {
+                                    "role": "tool",
+                                    "tool_call_id": call.id,
+                                    "name": call.name,
+                                    "content": context_content,
+                                }
+                            )
                     continue
 
                 # 兼容没有产生增量、只在最终结果中返回文本的模型适配器。
@@ -535,6 +540,50 @@ class AgentRuntime:
                     "usage_summary": usage_summary,
                 },
             }
+
+    def _plan_tool_batches(
+        self,
+        calls: list[ToolCall],
+    ) -> list[list[ToolCall]]:
+        """Group model-ordered calls into execution batches.
+
+        Consecutive read-only calls share one batch and may run concurrently;
+        any side-effect (or unknown) call becomes its own single-call batch so
+        it executes serially. Batch order preserves the model's call order.
+        """
+        batches: list[list[ToolCall]] = []
+        read_only_run: list[ToolCall] = []
+        for call in calls:
+            if self.tools.is_read_only(call.name):
+                read_only_run.append(call)
+                continue
+            if read_only_run:
+                batches.append(read_only_run)
+                read_only_run = []
+            batches.append([call])
+        if read_only_run:
+            batches.append(read_only_run)
+        return batches
+
+    async def _execute_tool_batch(
+        self,
+        batch: list[ToolCall],
+        tool_context: ToolContext,
+    ) -> list[ToolResult]:
+        semaphore = asyncio.Semaphore(self.max_tool_concurrency)
+
+        async def run(call: ToolCall):
+            async with semaphore:
+                return await self.tools.execute(
+                    call.name,
+                    call.arguments,
+                    context=tool_context,
+                    call_id=call.id,
+                )
+
+        if len(batch) == 1:
+            return [await run(batch[0])]
+        return list(await asyncio.gather(*(run(call) for call in batch)))
 
     def _build_messages(
         self,
