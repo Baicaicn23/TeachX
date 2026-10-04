@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeachX 项目进度地图</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #171a23;
+    --card2: #1d2130;
+    --text: #e8eaf2;
+    --muted: #8b90a5;
+    --done: #7c5cff;
+    --current: #ffb020;
+    --future: #3a3f52;
+    --green: #3ecf8e;
+    --red: #ff6b6b;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.6; padding: 40px 20px; max-width: 1060px; margin: 0 auto;
+  }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+  .stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 40px; }
+  .stat {
+    background: var(--card); border: 1px solid #262b3d; border-radius: 12px;
+    padding: 12px 18px; min-width: 130px;
+  }
+  .stat b { font-size: 22px; display: block; }
+  .stat span { color: var(--muted); font-size: 12px; }
+
+  /* ── 地铁线 ── */
+  .line-wrap { position: relative; margin: 10px 0 8px; }
+  .line-track {
+    position: absolute; top: 26px; left: 30px; right: 30px; height: 6px;
+    background: linear-gradient(90deg, var(--done) 0%, var(--done) 62%, var(--current) 62%, var(--future) 66%, var(--future) 100%);
+    border-radius: 3px;
+  }
+  .stations { display: flex; justify-content: space-between; position: relative; }
+  .station { width: 14.28%; text-align: center; }
+  .dot {
+    width: 22px; height: 22px; border-radius: 50%; margin: 16px auto 10px;
+    border: 5px solid var(--done); background: var(--bg); position: relative; z-index: 1;
+  }
+  .station.done .dot { background: var(--done); box-shadow: 0 0 14px rgba(124,92,255,.5); }
+  .station.current .dot {
+    border-color: var(--current); background: var(--current);
+    box-shadow: 0 0 0 6px rgba(255,176,32,.18), 0 0 18px rgba(255,176,32,.6);
+    animation: pulse 1.6s infinite;
+  }
+  .station.future .dot { border-color: var(--future); background: var(--bg); }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 6px rgba(255,176,32,.18), 0 0 18px rgba(255,176,32,.6); }
+    50% { box-shadow: 0 0 0 10px rgba(255,176,32,.08), 0 0 24px rgba(255,176,32,.85); }
+  }
+  .station .name { font-size: 14px; font-weight: 600; }
+  .station .desc { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .station.current .name { color: var(--current); }
+  .you-are-here {
+    text-align: center; color: var(--current); font-size: 12px; margin-top: 6px; font-weight: 600;
+  }
+
+  /* ── 阶段卡片 ── */
+  .phases { display: grid; gap: 14px; margin-top: 40px; }
+  .phase {
+    background: var(--card); border: 1px solid #262b3d; border-radius: 14px; padding: 18px 20px;
+  }
+  .phase.now { border-color: var(--current); background: linear-gradient(180deg, rgba(255,176,32,.07), var(--card)); }
+  .phase-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .tag {
+    font-size: 12px; padding: 2px 10px; border-radius: 20px; font-weight: 600;
+  }
+  .tag.done { background: rgba(124,92,255,.18); color: #b3a1ff; }
+  .tag.now   { background: rgba(255,176,32,.15); color: var(--current); }
+  .tag.plan  { background: rgba(139,144,165,.15); color: var(--muted); }
+  .phase h2 { font-size: 17px; }
+  .bar { height: 8px; background: #232840; border-radius: 4px; margin: 12px 0 10px; overflow: hidden; }
+  .bar > div { height: 100%; border-radius: 4px; }
+  .items { display: flex; flex-wrap: wrap; gap: 8px; }
+  .item {
+    font-size: 13px; padding: 4px 12px; border-radius: 8px; background: var(--card2);
+    border: 1px solid #2b3145;
+  }
+  .item.ok::before { content: "✓ "; color: var(--green); font-weight: 700; }
+  .item.no { color: var(--muted); }
+  .item.no::before { content: "○ "; color: var(--future); }
+
+  /* ── 上线路径 ── */
+  h1.second { margin-top: 52px; }
+  .tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 18px; }
+  .tier { border-radius: 14px; padding: 18px 20px; border: 1px solid #262b3d; background: var(--card); }
+  .tier h3 { font-size: 15px; margin-bottom: 2px; }
+  .tier .when { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+  .tier ul { list-style: none; }
+  .tier li { font-size: 13px; color: #c6cadb; padding: 3px 0 3px 20px; position: relative; }
+  .tier li.ok::before { content: "✓"; color: var(--green); position: absolute; left: 0; font-weight: 700; }
+  .tier li.todo::before { content: "□"; color: var(--current); position: absolute; left: 0; }
+  .tier li.skip::before { content: "—"; color: var(--muted); position: absolute; left: 0; }
+  .tier.now { border-color: var(--green); }
+  .tier.demo { border-color: var(--current); }
+  .foot { color: var(--muted); font-size: 12px; margin-top: 36px; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>TeachX 项目进度地图</h1>
+<p class="sub">截至 2026-10-04 · 代码基线 <b>a7ce30f</b> · 点击各板块可见下方明细</p>
+
+<div class="stats">
+  <div class="stat"><b>75</b><span>后端自动测试通过</span></div>
+  <div class="stat"><b>47</b><span>前端路由构建成功</span></div>
+  <div class="stat"><b>22</b><span>中文教程(00~21)</span></div>
+  <div class="stat"><b>E1~E5</b><span>Agent 稳定性批次完成</span></div>
+  <div class="stat"><b>已验证</b><span>DeepSeek 真实聊天+工具调用</span></div>
+</div>
+
+<div class="line-wrap">
+  <div class="line-track"></div>
+  <div class="stations">
+    <div class="station done"><div class="dot"></div><div class="name">基础平台</div><div class="desc">Web · 流式 · RAG · 认证</div></div>
+    <div class="station done"><div class="dot"></div><div class="name">产品闭环</div><div class="desc">个性化 · 练习 · 目标</div></div>
+    <div class="station done"><div class="dot"></div><div class="name">模型接入</div><div class="desc">自带 Key · 费用控制</div></div>
+    <div class="station done"><div class="dot"></div><div class="name">Agent 稳定性</div><div class="desc">重试 · 幂等 · 脱敏 · 并发 · 超时</div></div>
+    <div class="station current"><div class="dot"></div><div class="name">评测可观测</div><div class="desc">E6 ← 你在这里</div></div>
+    <div class="station future"><div class="dot"></div><div class="name">进阶能力</div><div class="desc">E7~E10 记忆/检索/MCP/路由</div></div>
+    <div class="station future"><div class="dot"></div><div class="name">正式上线</div><div class="desc">E11 部署与展示</div></div>
+  </div>
+</div>
+<div class="you-are-here">▲ 当前位置:第 4 站已完成,正在前往第 5 站(E6 评测与可观测)</div>
+
+<div class="phases">
+
+  <div class="phase">
+    <div class="phase-head"><span class="tag done">已完成</span><h2>① 基础平台(P0~P3)</h2></div>
+    <div class="bar"><div style="width:100%;background:var(--done)"></div></div>
+    <div class="items">
+      <span class="item ok">可运行 Web 垂直切片</span>
+      <span class="item ok">流式 Agent Loop(手写)</span>
+      <span class="item ok">知识库 + FTS5/向量/RRF 混合检索</span>
+      <span class="item ok">注册登录 + 用户数据隔离</span>
+      <span class="item ok">SQLite 持久化</span>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head"><span class="tag done">已完成</span><h2>② 普通用户闭环(U1~U6 + 模型接入)</h2></div>
+    <div class="bar"><div style="width:100%;background:var(--done)"></div></div>
+    <div class="items">
+      <span class="item ok">学习档案注入个性化提示词</span>
+      <span class="item ok">首次使用引导</span>
+      <span class="item ok">反馈与错题记录</span>
+      <span class="item ok">练习与间隔复习</span>
+      <span class="item ok">对话中的学习目标</span>
+      <span class="item ok">用户自带模型连接(Key 加密)</span>
+      <span class="item ok">token 费用控制与日预算</span>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head"><span class="tag done">已完成</span><h2>③ Agent 稳定性(E1~E5)</h2></div>
+    <div class="bar"><div style="width:100%;background:var(--done)"></div></div>
+    <div class="items">
+      <span class="item ok">E1 错误分类 + 有限重试 + 单工具超时</span>
+      <span class="item ok">E2 幂等保护(重复执行只生效一次)</span>
+      <span class="item ok">E3 敏感参数脱敏</span>
+      <span class="item ok">E4 只读工具并发 + 副作用串行</span>
+      <span class="item ok">E5 整回合超时 + 诚实失败 + 部分回答保留</span>
+    </div>
+  </div>
+
+  <div class="phase now">
+    <div class="phase-head"><span class="tag now">← 当前位置</span><h2>④ 评测与可观测(E6)</h2></div>
+    <div class="bar"><div style="width:0%;background:var(--current)"></div></div>
+    <div class="items">
+      <span class="item no">结构化 trace(失败可定位)</span>
+      <span class="item no">固定评测数据集</span>
+      <span class="item no">离线 replay 与回归告警</span>
+      <span class="item no">RAG 指标(Recall@K / MRR)</span>
+      <span class="item no">引用质量与忠实度</span>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head"><span class="tag plan">计划中</span><h2>⑤ 进阶能力(E7~E10)</h2></div>
+    <div class="bar"><div style="width:0%;background:var(--future)"></div></div>
+    <div class="items">
+      <span class="item no">E7 上下文工程与长期记忆</span>
+      <span class="item no">E8 真实 Embedding + Reranker</span>
+      <span class="item no">E9 MCP + 工具权限审批 + 沙箱</span>
+      <span class="item no">E10 模型路由 + 可恢复工作流</span>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head"><span class="tag plan">计划中</span><h2>⑥ 正式上线与展示(E11)</h2></div>
+    <div class="bar"><div style="width:0%;background:var(--future)"></div></div>
+    <div class="items">
+      <span class="item no">Docker 实机构建验证(配置已保留)</span>
+      <span class="item no">HTTPS 域名 + 密钥轮换 + Cookie Secure</span>
+      <span class="item no">监控告警与数据库备份</span>
+      <span class="item no">演示数据重置脚本</span>
+      <span class="item no">截图 / 演示视频 / 简历材料</span>
+    </div>
+  </div>
+</div>
+
+<h1 class="second">什么时候可以上线?</h1>
+<p class="sub">取决于"上线"指什么——分三档,每档差的东西不一样:</p>
+
+<div class="tiers">
+  <div class="tier now">
+    <h3>🟢 第一档:给人演示 / 录视频</h3>
+    <div class="when" style="color:var(--green)">现在就可以,零阻塞</div>
+    <ul>
+      <li class="ok">本地一键启动 ./scripts/dev.sh</li>
+      <li class="ok">演示账号、知识库、练习数据已就绪</li>
+      <li class="ok">DeepSeek 真实聊天和工具调用已验证</li>
+      <li class="ok">认证、用户隔离、费用护栏全部在工作</li>
+      <li class="skip">不需要公网,不需要 Docker</li>
+    </ul>
+  </div>
+
+  <div class="tier demo">
+    <h3>🟡 第二档:公网演示站(作品集 Demo)</h3>
+    <div class="when" style="color:var(--current)">约 3~5 次开发迭代后</div>
+    <ul>
+      <li class="todo">E6 的基础 trace(可只做最小版)</li>
+      <li class="todo">Docker 实机跑通(配置已有,需验证)</li>
+      <li class="todo">服务器/域名 + HTTPS + 密钥轮换</li>
+      <li class="todo">数据库定时备份 + 日志监控(最简)</li>
+      <li class="todo">演示数据一键重置脚本</li>
+      <li class="skip">E7~E10 可全部跳过,不影响演示</li>
+    </ul>
+  </div>
+
+  <div class="tier">
+    <h3>🔴 第三档:生产级多用户服务</h3>
+    <div class="when" style="color:var(--red)">较远,需 E6~E10 全部完成</div>
+    <ul>
+      <li class="todo">完整评测回归 + 质量告警(E6 全量)</li>
+      <li class="todo">真实 Embedding 检索质量(E8)</li>
+      <li class="todo">长期记忆与上下文治理(E7)</li>
+      <li class="todo">工具权限审批 + 沙箱(E9)</li>
+      <li class="todo">安全测试(注入/越权)+ 压测</li>
+    </ul>
+  </div>
+</div>
+
+<p class="foot">
+  过去一周完成了 E2~E5 四个批次 · 按此节奏第二档约 1~2 周 ·
+  本地图随大里程碑更新,权威进度以 docs/规划/开发路线图.md 为准
+</p>
+
+</body>
+</html>
