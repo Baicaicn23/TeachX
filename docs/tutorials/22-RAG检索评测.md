@@ -129,7 +129,7 @@ uv run python -m teachx.evals.run_rag_eval --baseline evals/baselines/rag_retrie
    检索被改坏时变红,正常波动不误报)。
 4. 基线对比:检出超容差退化、容忍容差内波动。
 
-运行 `./scripts/check.sh`,当前 82 passed。
+运行 `./scripts/check.sh`(测试数量以命令输出为准)。
 
 ## 七、当前边界(诚实说明)
 
