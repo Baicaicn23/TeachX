@@ -49,7 +49,7 @@ TeachX 是一个受 [DeepTutor](https://github.com/HKUDS/DeepTutor) 启发的独
 | --- | --- |
 | 流式聊天与 Agent 回合 | WebSocket 流式输出，多轮工具调用，会话与事件持久化 |
 | 工具执行可靠性 | 错误分类、超时、退避重试、幂等去重、参数脱敏、有界并发、整回合时间预算与诚实失败 |
-| 知识库与检索 | TXT / Markdown / PDF 上传，全文 + 向量混合检索，来源引用，固定评测集与指标回归 |
+| 知识库与检索 | TXT / Markdown / PDF 上传，全文 + 向量混合检索，来源引用，固定评测集与指标回归，回合 trace 五层诊断 |
 | 多用户与安全 | JWT Cookie 认证，会话/知识库/练习按用户隔离，用户 API Key 加密存储 |
 | 个性化 | 学习档案（年级、目标、讲解风格）注入提示词，可随时开关 |
 | 学习闭环 | 回答反馈、错题记录、从知识库生成练习、间隔复习、学习目标进度 |
@@ -118,7 +118,7 @@ TeachX/
 ./scripts/check.sh
 ```
 
-预期看到 `All checks passed!` 和 `82 passed`（后端自动测试，全部使用 Mock，
+预期看到 `All checks passed!` 和 `91 passed`（后端自动测试，全部使用 Mock，
 不消耗 API 额度），以及前端 TypeScript 检查通过。前端生产构建单独验证：
 在 `frontend/` 下运行 `npm run build`，预期 47 条路由构建成功。
 
@@ -133,7 +133,8 @@ TeachX/
 - [工具执行政策、重试、幂等与参数脱敏](docs/tutorials/19-工具执行政策与重试.md)
 - [多工具执行策略](docs/tutorials/20-多工具执行策略.md)
 - [整回合超时与断线恢复](docs/tutorials/21-整回合超时与断线恢复.md)
-- [RAG 检索评测](docs/tutorials/22-RAG检索评测.md)（最新参考标准）
+- [RAG 检索评测](docs/tutorials/22-RAG检索评测.md)
+- [回合 trace 诊断](docs/tutorials/23-回合trace诊断.md)（最新参考标准）
 
 其他：[全部文档导航](docs/README.md)、
 [架构说明](docs/参考/架构与数据流.md)、
