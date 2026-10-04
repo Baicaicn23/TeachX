@@ -84,6 +84,7 @@ async def lifespan(app: FastAPI):
         max_history_chars=settings.max_history_chars,
         max_tool_result_chars=settings.max_tool_result_chars,
         max_tool_concurrency=settings.tool_max_concurrency,
+        turn_timeout_seconds=settings.turn_timeout_seconds,
         generate_titles=settings.generate_titles,
         daily_token_budget=settings.daily_token_budget,
         budget_exceeded_action=settings.budget_exceeded_action,

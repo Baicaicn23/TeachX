@@ -328,5 +328,5 @@ class OpenAICompatibleProvider(BaseProvider):
             )
         return ProviderError(
             "模型流式响应中断，请重试",
-            code="provider_stream_error",
+            code="stream_interrupted",
         )

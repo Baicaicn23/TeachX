@@ -24,6 +24,27 @@ from teachx.schemas import SessionMessage, StartTurnCommand
 from teachx.storage.repository import SessionRepository
 from teachx.usage.service import UsageService
 
+_STREAM_END = object()
+
+
+class _TurnTimeoutError(RuntimeError):
+    """The whole turn exceeded its configured time budget."""
+
+
+async def _next_chunk(
+    iterator: AsyncIterator[Any],
+) -> Any:
+    """Advance a stream, converting StopAsyncIteration into a sentinel.
+
+    The sentinel keeps ``asyncio.wait_for`` usable as a per-chunk watchdog:
+    raising StopAsyncIteration through a wrapped Task is undefined behavior.
+    """
+
+    try:
+        return await iterator.__anext__()
+    except StopAsyncIteration:
+        return _STREAM_END
+
 
 class AgentRuntime:
     """执行一次支持流式输出和工具调用的 TeachX 回合。"""
@@ -41,6 +62,7 @@ class AgentRuntime:
         max_history_chars: int = 16000,
         max_tool_result_chars: int = 6000,
         max_tool_concurrency: int = 4,
+        turn_timeout_seconds: float = 300.0,
         generate_titles: bool = False,
         daily_token_budget: int = 0,
         budget_exceeded_action: Literal["block", "mock"] = "block",
@@ -55,6 +77,7 @@ class AgentRuntime:
         self.max_history_chars = max_history_chars
         self.max_tool_result_chars = max_tool_result_chars
         self.max_tool_concurrency = max(1, int(max_tool_concurrency))
+        self.turn_timeout_seconds = max(0.0, float(turn_timeout_seconds))
         self.generate_titles = generate_titles
         self.daily_token_budget = daily_token_budget
         self.budget_exceeded_action = budget_exceeded_action
@@ -183,7 +206,14 @@ class AgentRuntime:
             return
 
         try:
+            deadline = (
+                time.monotonic() + self.turn_timeout_seconds
+                if self.turn_timeout_seconds > 0
+                else None
+            )
+            hit_max_rounds = False
             for round_index in range(self.max_rounds):
+                self._check_turn_deadline(deadline)
                 if round_index > 0 and budget_status.get("exceeded"):
                     finish_reason = "budget_exceeded"
                     break
@@ -191,7 +221,25 @@ class AgentRuntime:
                 result: LLMResult | None = None
                 round_content = ""
 
-                async for item in active_provider.stream(messages, tool_schemas):
+                stream_iterator = active_provider.stream(messages, tool_schemas)
+                while True:
+                    chunk_timeout = (
+                        deadline - time.monotonic() if deadline is not None else None
+                    )
+                    if chunk_timeout is not None and chunk_timeout <= 0:
+                        raise _TurnTimeoutError("回合时间预算已耗尽")
+                    if chunk_timeout is None:
+                        item = await _next_chunk(stream_iterator)
+                    else:
+                        try:
+                            item = await asyncio.wait_for(
+                                _next_chunk(stream_iterator),
+                                timeout=chunk_timeout,
+                            )
+                        except TimeoutError as exc:
+                            raise _TurnTimeoutError("回合时间预算已耗尽") from exc
+                    if item is _STREAM_END:
+                        break
                     if isinstance(item, ContentDelta):
                         round_content += item.content
                         final_content_parts.append(item.content)
@@ -259,7 +307,9 @@ class AgentRuntime:
                             saved_events.append(yield_event)
                             yield yield_event
 
-                        outcomes = await self._execute_tool_batch(batch, tool_context)
+                        outcomes = await self._execute_tool_batch_guarded(
+                            batch, tool_context, deadline
+                        )
                         for call, tool_result in zip(batch, outcomes, strict=True):
                             context_content = self._truncate_tool_result(tool_result.content)
                             result_event = self._event(
@@ -326,39 +376,32 @@ class AgentRuntime:
                     saved_events.append(event)
                     yield event
                 break
+            else:
+                hit_max_rounds = True
 
             final_content = "".join(final_content_parts).strip()
-            if not final_content:
-                if finish_reason != "budget_exceeded":
-                    finish_reason = "max_rounds"
-                final_content = (
-                    "本轮已达到今日 token 预算，后续模型调用已停止。"
-                    if finish_reason == "budget_exceeded"
-                    else "本轮推理达到最大工具调用轮数，请缩小问题范围后重试。"
+            turn_error_code: str | None = None
+            turn_error_message = ""
+            if hit_max_rounds:
+                finish_reason = "max_rounds"
+                turn_error_code = "max_rounds_exceeded"
+                turn_error_message = (
+                    "本轮推理达到最大工具调用轮数，未能形成完整回答。"
+                    "请缩小问题范围后重试。"
                 )
-                fallback_event = self._event(
-                    "content",
-                    session_id,
-                    turn_id,
-                    command.capability,
-                    content=final_content,
-                    metadata={
-                        "round": rounds_used,
-                        "call_kind": "llm_final_response",
-                        "answer_visible": True,
-                    },
+            if finish_reason == "budget_exceeded":
+                notice = (
+                    "\n\n本轮已达到今日 token 预算，后续模型调用已停止。"
+                    if final_content
+                    else "本轮已达到今日 token 预算，后续模型调用已停止。"
                 )
-                saved_events.append(fallback_event)
-                yield fallback_event
-            elif finish_reason == "budget_exceeded":
-                notice = "\n\n本轮已达到今日 token 预算，后续模型调用已停止。"
                 final_content += notice
                 notice_event = self._event(
                     "content",
                     session_id,
                     turn_id,
                     command.capability,
-                    content=notice,
+                    content=notice if final_content != notice else notice,
                     metadata={
                         "round": rounds_used,
                         "call_kind": "budget_notice",
@@ -401,14 +444,11 @@ class AgentRuntime:
                 }
 
             usage_summary = self._usage_summary(usage_calls, budget_status)
+            partial_turn = turn_error_code is not None
 
-            assistant_message = await self.repository.add_message(
-                session_id=session_id,
-                role="assistant",
-                content=final_content,
-                capability=command.capability,
-                events=saved_events,
-                metadata={
+            assistant_message = None
+            if final_content:
+                assistant_metadata: dict[str, Any] = {
                     "finish_reason": finish_reason,
                     "turn_id": turn_id,
                     "prompt_version": PROMPT_VERSION,
@@ -417,9 +457,20 @@ class AgentRuntime:
                     "history_messages_used": history_messages_used,
                     "budget_fallback": budget_fallback,
                     "usage_summary": usage_summary,
-                },
-                parent_message_id=user_message.id,
-            )
+                }
+                if partial_turn:
+                    assistant_metadata.update(
+                        {"partial": True, "turn_error_code": turn_error_code}
+                    )
+                assistant_message = await self.repository.add_message(
+                    session_id=session_id,
+                    role="assistant",
+                    content=final_content,
+                    capability=command.capability,
+                    events=saved_events,
+                    metadata=assistant_metadata,
+                    parent_message_id=user_message.id,
+                )
             yield {
                 "type": "stage_end",
                 "source": command.capability,
@@ -428,22 +479,42 @@ class AgentRuntime:
                 "session_id": session_id,
                 "turn_id": turn_id,
             }
-            result_event = {
-                "type": "result",
-                "source": command.capability,
-                "content": final_content,
-                "session_id": session_id,
-                "turn_id": turn_id,
-                "metadata": {
-                    "finish_reason": finish_reason,
-                    "rounds_used": rounds_used,
-                    "tool_call_count": tool_call_count,
-                    "prompt_version": PROMPT_VERSION,
-                    "metadata": {"usage_summary": usage_summary},
-                },
-            }
-            saved_events.append(result_event)
-            yield result_event
+            if final_content:
+                result_event = {
+                    "type": "result",
+                    "source": command.capability,
+                    "content": final_content,
+                    "session_id": session_id,
+                    "turn_id": turn_id,
+                    "metadata": {
+                        "finish_reason": finish_reason,
+                        "rounds_used": rounds_used,
+                        "tool_call_count": tool_call_count,
+                        "prompt_version": PROMPT_VERSION,
+                        **({"partial": True} if partial_turn else {}),
+                        "metadata": {"usage_summary": usage_summary},
+                    },
+                }
+                saved_events.append(result_event)
+                yield result_event
+            if partial_turn:
+                turn_error_event = self._event(
+                    "error",
+                    session_id,
+                    turn_id,
+                    command.capability,
+                    content=turn_error_message,
+                    metadata={
+                        "status": "failed",
+                        "turn_terminal": True,
+                        "retryable": True,
+                        "error_code": turn_error_code,
+                        "usage_summary": usage_summary,
+                        "budget": budget_status,
+                    },
+                )
+                saved_events.append(turn_error_event)
+                yield turn_error_event
             done_event = {
                 "type": "done",
                 "source": "runtime",
@@ -451,9 +522,11 @@ class AgentRuntime:
                 "session_id": session_id,
                 "turn_id": turn_id,
                 "metadata": {
-                    "status": "completed",
+                    "status": "failed" if partial_turn else "completed",
                     "user_message_id": user_message.id,
-                    "assistant_message_id": assistant_message.id,
+                    "assistant_message_id": (
+                        assistant_message.id if assistant_message else None
+                    ),
                     "title": final_title,
                     "rounds_used": rounds_used,
                     "tool_call_count": tool_call_count,
@@ -462,15 +535,100 @@ class AgentRuntime:
                     "budget_fallback": budget_fallback,
                     "budget": budget_status,
                     "usage_summary": usage_summary,
+                    **(
+                        {"partial": True, "error_code": turn_error_code, "retryable": True}
+                        if partial_turn
+                        else {}
+                    ),
                 },
             }
             saved_events.append(done_event)
-            await self.repository.update_message_events(
-                assistant_message.id,
-                saved_events,
-                user_id=user_id,
-            )
+            if assistant_message is not None:
+                await self.repository.update_message_events(
+                    assistant_message.id,
+                    saved_events,
+                    user_id=user_id,
+                )
             yield done_event
+        except _TurnTimeoutError:
+            budget_status = await self._budget_status(user_id)
+            usage_summary = self._usage_summary(usage_calls, budget_status)
+            partial_content = "".join(final_content_parts).strip()
+            error_event = self._event(
+                "error",
+                session_id,
+                turn_id,
+                command.capability,
+                content="本轮回答超时，已停止后续模型调用。已生成的部分回答已保留，可以重试。",
+                metadata={
+                    "status": "failed",
+                    "turn_terminal": True,
+                    "retryable": True,
+                    "error_code": "turn_timeout",
+                    "usage_summary": usage_summary,
+                    "budget": budget_status,
+                },
+            )
+            assistant_message = None
+            if partial_content:
+                saved_events.append(error_event)
+                result_event = {
+                    "type": "result",
+                    "source": command.capability,
+                    "content": partial_content,
+                    "session_id": session_id,
+                    "turn_id": turn_id,
+                    "metadata": {
+                        "finish_reason": "turn_timeout",
+                        "rounds_used": rounds_used,
+                        "tool_call_count": tool_call_count,
+                        "prompt_version": PROMPT_VERSION,
+                        "partial": True,
+                        "metadata": {"usage_summary": usage_summary},
+                    },
+                }
+                saved_events.append(result_event)
+                assistant_message = await self.repository.add_message(
+                    session_id=session_id,
+                    role="assistant",
+                    content=partial_content,
+                    capability=command.capability,
+                    events=saved_events,
+                    metadata={
+                        "finish_reason": "turn_timeout",
+                        "turn_id": turn_id,
+                        "prompt_version": PROMPT_VERSION,
+                        "rounds_used": rounds_used,
+                        "tool_call_count": tool_call_count,
+                        "history_messages_used": history_messages_used,
+                        "partial": True,
+                        "turn_error_code": "turn_timeout",
+                        "usage_summary": usage_summary,
+                    },
+                    parent_message_id=user_message.id,
+                )
+                yield result_event
+            yield error_event
+            yield {
+                "type": "done",
+                "source": "runtime",
+                "content": "",
+                "session_id": session_id,
+                "turn_id": turn_id,
+                "metadata": {
+                    "status": "failed",
+                    "user_message_id": user_message.id,
+                    "assistant_message_id": (
+                        assistant_message.id if assistant_message else None
+                    ),
+                    "history_messages_used": history_messages_used,
+                    "error_code": "turn_timeout",
+                    "retryable": True,
+                    "budget": budget_status,
+                    "usage_summary": usage_summary,
+                    **({"partial": True} if partial_content else {}),
+                },
+            }
         except ProviderError as exc:
             budget_status = await self._budget_status(user_id)
             usage_summary = self._usage_summary(usage_calls, budget_status)
@@ -540,6 +698,30 @@ class AgentRuntime:
                     "usage_summary": usage_summary,
                 },
             }
+
+    @staticmethod
+    def _check_turn_deadline(deadline: float | None) -> None:
+        if deadline is not None and time.monotonic() >= deadline:
+            raise _TurnTimeoutError("回合时间预算已耗尽")
+
+    async def _execute_tool_batch_guarded(
+        self,
+        batch: list[ToolCall],
+        tool_context: ToolContext,
+        deadline: float | None,
+    ) -> list[ToolResult]:
+        if deadline is None:
+            return await self._execute_tool_batch(batch, tool_context)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise _TurnTimeoutError("回合时间预算已耗尽")
+        try:
+            return await asyncio.wait_for(
+                self._execute_tool_batch(batch, tool_context),
+                timeout=remaining,
+            )
+        except TimeoutError as exc:
+            raise _TurnTimeoutError("回合时间预算已耗尽") from exc
 
     def _plan_tool_batches(
         self,
