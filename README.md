@@ -1,65 +1,53 @@
-<p align="center">
-  <img src="./frontend/public/teachx-banner.svg" alt="TeachX" width="720">
-</p>
+<div align="center">
 
-<p align="center">
-  一个把大模型做成可靠学习助手的多用户 Web 平台：自研 Agent Harness、
-  混合检索、幂等安全的工具调用、可观测的 token 成本。
-</p>
+<img src="./frontend/public/teachx-banner.svg" alt="TeachX" width="600">
 
-<p align="center">
-  <img alt="当前状态" src="https://img.shields.io/badge/status-%E5%BC%80%E5%8F%91%E4%B8%AD-brightgreen">
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.12-blue">
-  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.142-009688">
-  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black">
-  <img alt="许可证" src="https://img.shields.io/badge/license-Apache--2.0-blue">
-  <img alt="CI" src="https://github.com/Baicaicn23/TeachX/actions/workflows/ci.yml/badge.svg">
-</p>
+**把大模型做成可靠、可评测的学习助手**
+
+自研 Agent Harness · 混合检索 RAG · 工具可靠性工程 · 多用户学习闭环
+
+[![状态](https://img.shields.io/badge/status-%E5%BC%80%E5%8F%91%E4%B8%AD-brightgreen)](#-开发路线)
+[![Python](https://img.shields.io/badge/Python-3.12-blue)](backend/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.142-009688)](backend/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black)](frontend/)
+[![CI](https://github.com/Baicaicn23/TeachX/actions/workflows/ci.yml/badge.svg)](https://github.com/Baicaicn23/TeachX/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](#-维护者入口)
+
+[快速开始](#-快速开始) · [技术亮点](#-技术亮点) · [教程](#-文档与教程) · [开发路线](#-开发路线)
+
+</div>
+
+---
 
 TeachX 是一个受 [DeepTutor](https://github.com/HKUDS/DeepTutor) 启发的独立项目：
-后端完全重写，前端基于 Apache-2.0 复用。它不是"调一次模型 API"的封装，而是围绕
-2026 年 AI 应用岗位真正看重的工程能力构建的完整产品——把模型做成可靠、可控、
-可继续扩展的系统。技术选型依据见
-[2026 AI 岗位技术栈调研](docs/规划/2026-AI岗位技术栈调研.md)。
+后端完全重写，前端基于 Apache-2.0 复用。它不做"调一次模型 API"的封装，而是围绕
+2026 年 AI 应用岗位真正看重的工程能力构建——把模型做成**可靠、可控、可评测**的系统。
+技术选型依据见 [2026 AI 岗位技术栈调研](docs/规划/2026-AI岗位技术栈调研.md)。
 
-## 为什么这个项目不一样
+## ✨ 技术亮点
 
-多数课程项目停留在"能调模型、能流式输出"。TeachX 把力气花在模型之外的系统层：
+| | 能力 | 一句话说明 |
+| --- | --- | --- |
+| 🧩 | **自研 Agent Harness** | 不依赖 Agent 框架，手写流式多轮工具调用循环，每层设计都能讲清为什么 |
+| 🛡️ | **工具可靠性工程** | 错误分类 · 有限退避重试 · 幂等去重 · 敏感参数脱敏 · 有界并发 · 双层超时 |
+| 🔎 | **混合检索 RAG** | SQLite FTS5 + 向量 + RRF 融合排序，来源引用，检索继承用户数据权限 |
+| 📊 | **评测与可观测** | 固定评测集 + Hit@K/Recall@K/MRR 基线门禁；回合 trace 五层责任定位 |
+| 📉 | **成本与上下文工程** | token 全量记录与展示 · 每日预算 · 输出/历史/工具结果上限 · 超限阻止或回退 |
+| 🔌 | **多模型接入** | 统一 Provider 接口，用户自带 DeepSeek/OpenAI Key（加密存储），已真实联调 |
+| 🎓 | **真实学习闭环** | 个性化提示词 · 首次引导 · 错题记录 · 练习复习 · 学习目标，多用户数据隔离 |
 
-- **自研 Agent Harness**：不依赖 LangChain 等框架，手写流式 Agent Loop（多轮
-  推理 → 工具调用 → 继续推理），每一层都能讲清为什么这样设计。
-- **工具调用可靠性**：错误分为临时/永久/超时三类，临时错误按指数退避有限重试；
-  幂等保护保证同一业务请求只产生一次副作用，重复请求直接重放第一次的结果；
-  敏感参数（如 API Key）在事件和记录中自动打码；一轮多个调用时只读工具
-  有界并发、副作用工具串行，结果严格按模型调用顺序返回；整回合有时间预算，
-  超时或轮数耗尽时诚实报告原因并保留已生成的部分回答，支持一键重试。
-- **混合检索 RAG**：SQLite FTS5 全文检索 + 向量相似度，RRF 融合排序；回答带
-  来源引用；检索自动继承当前用户的数据权限。
-- **上下文与成本工程**：用户学习档案注入系统提示词；历史消息、工具结果和输出
-  token 都有预算上限；每次模型调用记录 token 用量，支持每日预算与超限阻止。
-- **多模型接入**：统一 Provider 接口对接 OpenAI 兼容协议；用户可自带
-  DeepSeek/OpenAI 的 API Key（服务端加密存储），也可回退平台默认模型。
-  DeepSeek Flash 的流式输出和工具调用已真实验证。
-- **真实多用户产品**：注册认证、数据按用户隔离、个性化提示词、错题记录、
-  练习与间隔复习——是一个可日常使用的学习工具，不是一次性演示。
+<details>
+<summary><b>当前边界（诚实说明，也是下一步方向）</b></summary>
 
-## 现在能做什么
+- 回答忠实度与引用质量评测未做（需要真实模型 + LLM-as-a-Judge）
+- Embedding 仍主要使用 Mock，未接真实向量模型
+- 没有 MCP、工具权限审批和沙箱执行
+- Docker 配置保留但未实机验证，未做公网部署
+- 项目定位是**简历作品集**（Agent 开发实习方向），不追求生产上线
 
-| 能力 | 说明 |
-| --- | --- |
-| 流式聊天与 Agent 回合 | WebSocket 流式输出，多轮工具调用，会话与事件持久化 |
-| 工具执行可靠性 | 错误分类、超时、退避重试、幂等去重、参数脱敏、有界并发、整回合时间预算与诚实失败 |
-| 知识库与检索 | TXT / Markdown / PDF 上传，全文 + 向量混合检索，来源引用，固定评测集与指标回归，回合 trace 五层诊断 |
-| 多用户与安全 | JWT Cookie 认证，会话/知识库/练习按用户隔离，用户 API Key 加密存储 |
-| 个性化 | 学习档案（年级、目标、讲解风格）注入提示词，可随时开关 |
-| 学习闭环 | 回答反馈、错题记录、从知识库生成练习、间隔复习、学习目标进度 |
-| 成本控制 | token 用量记录与展示、每日预算、输出/历史/工具结果上限、超限阻止或回退 Mock |
+</details>
 
-**当前边界**（诚实说明，也是下一步方向）：还没有固定评测数据集、离线回放和
-RAG 指标；还没有结构化 trace 与告警；Embedding 仍主要使用 Mock；还没有
-MCP、工具权限审批和沙箱执行；Docker 配置保留但未实机验证。
-
-## 快速开始
+## 🚀 快速开始
 
 需要 Python 3.12+ 和 Node.js 20+。
 
@@ -67,11 +55,10 @@ MCP、工具权限审批和沙箱执行；Docker 配置保留但未实机验证�
 ./scripts/dev.sh
 ```
 
-启动后访问 [http://localhost:3000](http://localhost:3000)（前端），
-后端在 [http://127.0.0.1:8010](http://127.0.0.1:8010)。发送"计算 7 * 9"，
+打开 [http://localhost:3000](http://localhost:3000)，发送"计算 7 * 9"，
 应该看到模型调用计算器工具并流式回答 63。
 
-只想体验界面、不消耗 API 额度时，用 Mock 模型启动：
+不想消耗 API 额度？用 Mock 模型启动：
 
 ```bash
 TEACHX_LLM_PROVIDER=mock \
@@ -81,90 +68,90 @@ TEACHX_KNOWLEDGE_ROOT=/tmp/teachx-mock-knowledge \
 ./scripts/dev.sh
 ```
 
-### 接入真实模型
+<details>
+<summary><b>接入真实模型（DeepSeek / OpenAI / 任何 OpenAI 兼容平台）</b></summary>
 
-复制 `backend/.env` 配置（不提交到 Git）：
+配置 `backend/.env`（该文件被 Git 忽略）：
 
 ```bash
 TEACHX_LLM_PROVIDER=openai
-OPENAI_BASE_URL=https://api.deepseek.com/v1   # 任何 OpenAI 兼容平台
+OPENAI_BASE_URL=https://api.deepseek.com/v1
 TEACHX_MODEL=deepseek-flash
 OPENAI_API_KEY=你的密钥
 ```
 
-也可以在网页"模型连接"页填入自己的 Key，保存后聊天即使用你自己的模型；
-Key 由服务端加密，接口不回传明文。
+也可以在网页"模型连接"页填入自己的 Key——服务端加密存储，接口不回传明文，
+保存后聊天即使用你自己的模型。
 
-## 项目结构
+</details>
+
+## 📊 质量与验证
+
+```bash
+./scripts/check.sh     # 预期 All checks passed（后端测试全绿,全程 Mock 零 API 消耗）
+```
+
+- 检索质量可复现：`cd backend && uv run python -m teachx.evals.run_rag_eval`
+  （基线 Hit@3 = 1.0 · MRR = 0.688，退化超容差自动报错）
+- 失败定位：`uv run python -m teachx.runtime.turn_trace --session <会话id>`
+  （把失败定位到模型 / 检索 / 工具 / 编排 / 费用五层之一）
+- 前端生产构建：47 条路由（`cd frontend && npm run build`）
+
+## 📁 项目结构
 
 ```text
 TeachX/
 ├── backend/                 FastAPI 服务
 │   └── src/teachx/
-│       ├── runtime/         Agent Loop、工具注册、执行政策与幂等记录
+│       ├── runtime/         Agent Loop、工具政策、幂等、trace
 │       ├── providers/       Mock 与 OpenAI 兼容模型适配器
 │       ├── knowledge/       文档提取、切块、索引与混合检索
+│       ├── evals/           检索评测指标与跑分命令
 │       ├── auth/            用户、密码和 JWT
 │       ├── usage/           token 用量与日预算
 │       └── storage/         SQLite 持久化与迁移
 ├── frontend/                Next.js 界面（基于 Apache-2.0 复用）
-├── docs/                    架构、路线图、教程与调研
-└── scripts/                 dev.sh 一键启动、check.sh 一键检查
+├── docs/                    导航、参考、规划、规范、24 篇教程
+└── scripts/                 dev.sh 一键启动 · check.sh 一键检查
 ```
 
-## 质量检查
+## 📚 文档与教程
 
-```bash
-./scripts/check.sh
-```
+每个核心功能都有中文教程，解释为什么这样设计，并配**面试问答**——项目即面试准备材料。
 
-预期看到 `All checks passed!` 和 `91 passed`（后端自动测试，全部使用 Mock，
-不消耗 API 额度），以及前端 TypeScript 检查通过。前端生产构建单独验证：
-在 `frontend/` 下运行 `npm run build`，预期 47 条路由构建成功。
+- [全部文档导航](docs/README.md) · [教程目录](docs/tutorials/README.md)
+- 入门：[如何阅读这个项目](docs/tutorials/00-如何阅读这个项目.md) · [一次提问的完整旅程](docs/tutorials/01-一次提问的完整旅程.md)
+- Agent 稳定性：[工具政策/重试/幂等/脱敏](docs/tutorials/19-工具执行政策与重试.md) · [多工具执行](docs/tutorials/20-多工具执行策略.md) · [超时与恢复](docs/tutorials/21-整回合超时与断线恢复.md)
+- 评测可观测：[RAG 检索评测](docs/tutorials/22-RAG检索评测.md) · [回合 trace 诊断](docs/tutorials/23-回合trace诊断.md)
+- 参考：[架构与数据流](docs/参考/架构与数据流.md) · [API 一览](docs/参考/API一览.md) · [配置说明](docs/参考/配置说明.md) · [数据库表结构](docs/参考/数据库表结构.md)
 
-## 文档与教程
+## 🗺️ 开发路线
 
-项目为每个核心功能写了中文教程，解释为什么这样设计、代码如何工作，并配有
-面试问答，从零基础也能读懂：
+| 状态 | 阶段 | 内容 |
+| :---: | --- | --- |
+| ✅ | 基础平台 | Web 垂直切片 · 流式回合 · 知识库混合检索 · 认证与隔离 |
+| ✅ | 学习闭环 | 个性化 · 首次引导 · 错题 · 练习复习 · 学习目标 |
+| ✅ | 模型与费用 | 用户模型连接 · token 预算 · Provider 错误处理 |
+| ✅ | Agent 稳定性 | 重试 · 幂等 · 脱敏 · 并发 · 双层超时（E1~E5） |
+| ✅ | 评测与可观测 | 检索指标与基线门禁 · 回合 trace 五层诊断（E6） |
+| 🔄 | 作品集收尾 | 演示视频 · 简历项目描述 · 面试问答稿 |
+| ⬜ | 加分项（可选） | MCP · 上下文记忆 · 真实 Embedding · 模型路由 |
 
-- [教程目录](docs/tutorials/README.md)
-- [如何阅读这个项目](docs/tutorials/00-如何阅读这个项目.md)
-- [一次提问的完整旅程](docs/tutorials/01-一次提问的完整旅程.md)
-- [工具执行政策、重试、幂等与参数脱敏](docs/tutorials/19-工具执行政策与重试.md)
-- [多工具执行策略](docs/tutorials/20-多工具执行策略.md)
-- [整回合超时与断线恢复](docs/tutorials/21-整回合超时与断线恢复.md)
-- [RAG 检索评测](docs/tutorials/22-RAG检索评测.md)
-- [回合 trace 诊断](docs/tutorials/23-回合trace诊断.md)（最新参考标准）
+> 项目定位：**简历作品集**（目标 Agent 开发实习），生产部署硬化不在计划内。
+> 详细进度见 [可视化进度地图](docs/规划/项目进度地图.html) 和 [开发路线图](docs/规划/开发路线图.md)。
 
-其他：[全部文档导航](docs/README.md)、
-[架构说明](docs/参考/架构与数据流.md)、
-[开发路线图](docs/规划/开发路线图.md)、
-[文档写作指南](docs/规范/文档写作指南.md)。
+## 🔧 维护者入口
 
-## 开发路线
+接手开发或恢复上下文：[AGENTS.md](AGENTS.md) → [开发交接文档](docs/交接文档.md) →
+[开发路线图](docs/规划/开发路线图.md) → [文档写作指南](docs/规范/文档写作指南.md)
 
-| 阶段 | 内容 | 状态 |
-| --- | --- | --- |
-| 基础能力 | Web 垂直切片、流式 Agent 回合、知识库与混合检索 | 已完成 |
-| 产品闭环 | 认证与用户隔离、个性化、错题、练习复习、学习目标 | 已完成 |
-| 模型接入 | 用户模型连接、费用控制、Provider 错误处理 | 已完成 |
-| Agent 可靠性（一） | 工具执行政策、超时、有限重试、幂等保护 | 已完成 |
-| Agent 可靠性（二） | 敏感参数脱敏、多工具执行策略、整回合超时与断线提示 | 进行中 |
-| 评测与可观测 | 固定评测集、RAG 指标、结构化 trace、回归告警 | 计划中 |
-| 上下文与记忆 | 对话摘要、长期学习记忆、上下文压缩 | 计划中 |
-| 检索升级 | 真实 Embedding、Reranker、检索质量评测 | 计划中 |
-| 生态与部署 | MCP、工具权限审批、沙箱、在线演示 | 计划中 |
-
-## 维护者入口
-
-接手开发或恢复上下文时，按顺序阅读：[AGENTS.md](AGENTS.md)、
-[开发交接文档](docs/交接文档.md)、[开发路线图](docs/规划/开发路线图.md)、
-[文档写作指南](docs/规范/文档写作指南.md)。
-
-## 上游关系与许可
+<details>
+<summary><b>上游关系与许可</b></summary>
 
 TeachX 不是 DeepTutor 的官方仓库。前端按照 Apache-2.0 许可证复用，后端和运行时
 围绕更小的产品边界重新实现，来源与归属见 [UPSTREAM.md](UPSTREAM.md)。
 
 本项目使用 Apache License 2.0，详见 [LICENSE](LICENSE)；上游完整许可文本保留在
 [third_party/DeepTutor-LICENSE](third_party/DeepTutor-LICENSE)。
+
+</details>
