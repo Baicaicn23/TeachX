@@ -29,3 +29,7 @@ data/*
 !.env.example
 !.env.docker.example
 !backend/.env.example
+
+# IDE
+.idea/
+.vscode/
