@@ -205,7 +205,7 @@ budget_fallback = true
 | 5xx 服务端错误 | `provider_server_error` | 是 |
 | 其他 HTTP 状态 | `provider_http_error` | 按状态码判断 |
 | 连接失败 | `provider_connection_error` | 是 |
-| 流提前中断 | `provider_stream_error` | 是 |
+| 流提前中断 | `stream_interrupted` | 是 |
 
 错误事件同时包含 `retryable` 和可用的 `provider_status_code`，前端会据此决定是否
 展示重试入口。
