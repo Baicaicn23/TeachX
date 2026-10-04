@@ -127,7 +127,7 @@
     <div class="station done"><div class="dot"></div><div class="name">Agent 稳定性</div><div class="desc">重试 · 幂等 · 脱敏 · 并发 · 超时</div></div>
     <div class="station current"><div class="dot"></div><div class="name">评测可观测</div><div class="desc">E6 ← 你在这里</div></div>
     <div class="station future"><div class="dot"></div><div class="name">进阶能力</div><div class="desc">E7~E10 记忆/检索/MCP/路由</div></div>
-    <div class="station future"><div class="dot"></div><div class="name">正式上线</div><div class="desc">E11 部署与展示</div></div>
+    <div class="station future"><div class="dot"></div><div class="name">作品集收尾</div><div class="desc">演示材料 · 简历 · 面试稿</div></div>
   </div>
 </div>
 <div class="you-are-here">▲ 当前位置:第 4 站已完成,正在前往第 5 站(E6 评测与可观测)</div>
@@ -196,63 +196,73 @@
   </div>
 
   <div class="phase">
-    <div class="phase-head"><span class="tag plan">计划中</span><h2>⑥ 正式上线与展示(E11)</h2></div>
+    <div class="phase-head"><span class="tag plan">计划中</span><h2>⑥ 作品集收尾(原 E11,已按简历导向调整)</h2></div>
     <div class="bar"><div style="width:0%;background:var(--future)"></div></div>
     <div class="items">
-      <span class="item no">Docker 实机构建验证(配置已保留)</span>
-      <span class="item no">HTTPS 域名 + 密钥轮换 + Cookie Secure</span>
-      <span class="item no">监控告警与数据库备份</span>
-      <span class="item no">演示数据重置脚本</span>
-      <span class="item no">截图 / 演示视频 / 简历材料</span>
+      <span class="item no">README 演示 GIF 与截图</span>
+      <span class="item no">2~3 分钟真实模型演示视频</span>
+      <span class="item no">简历项目描述(高信号表述)</span>
+      <span class="item no">面试问答稿(从教程提炼)</span>
+      <span class="item no">本地 Docker 一键演示(可选)</span>
     </div>
   </div>
 </div>
 
-<h1 class="second">什么时候可以上线?</h1>
-<p class="sub">取决于"上线"指什么——分三档,每档差的东西不一样:</p>
+<h1 class="second">找 Agent 实习:项目还差什么?</h1>
+<p class="sub">目标已确认:简历作品集,不追求生产上线。按"面试官会问什么"来排:</p>
 
 <div class="tiers">
   <div class="tier now">
-    <h3>🟢 第一档:给人演示 / 录视频</h3>
-    <div class="when" style="color:var(--green)">现在就可以,零阻塞</div>
+    <h3>🟢 简历上已经能写的</h3>
+    <div class="when" style="color:var(--green)">现在就能写,零阻塞</div>
     <ul>
-      <li class="ok">本地一键启动 ./scripts/dev.sh</li>
-      <li class="ok">演示账号、知识库、练习数据已就绪</li>
-      <li class="ok">DeepSeek 真实聊天和工具调用已验证</li>
-      <li class="ok">认证、用户隔离、费用护栏全部在工作</li>
-      <li class="skip">不需要公网,不需要 Docker</li>
+      <li class="ok">自研 Agent Harness(E1~E5 可靠性故事完整)</li>
+      <li class="ok">工具重试/幂等/脱敏/并发/超时 —— 高信号词全中</li>
+      <li class="ok">FTS5+向量+RRF 混合检索、费用控制、多用户安全</li>
+      <li class="ok">DeepSeek 真实联调证据</li>
+      <li class="ok">22 篇教程+面试问答 = 面试准备材料已内建</li>
+      <li class="skip">公网部署不是必须,README+演示视频即可</li>
     </ul>
   </div>
 
   <div class="tier demo">
-    <h3>🟡 第二档:公网演示站(作品集 Demo)</h3>
-    <div class="when" style="color:var(--current)">约 3~5 次开发迭代后</div>
+    <h3>🟡 面试必答的硬缺口(E6,下一步)</h3>
+    <div class="when" style="color:var(--current)">约 2~3 次开发迭代</div>
     <ul>
-      <li class="todo">E6 的基础 trace(可只做最小版)</li>
-      <li class="todo">Docker 实机跑通(配置已有,需验证)</li>
-      <li class="todo">服务器/域名 + HTTPS + 密钥轮换</li>
-      <li class="todo">数据库定时备份 + 日志监控(最简)</li>
-      <li class="todo">演示数据一键重置脚本</li>
-      <li class="skip">E7~E10 可全部跳过,不影响演示</li>
+      <li class="todo">固定评测数据集(golden dataset)</li>
+      <li class="todo">RAG 指标 Recall@K / MRR,可复现分数</li>
+      <li class="todo">结构化 trace:失败能定位到模型/检索/工具</li>
+      <li class="todo">改动前后回归对比</li>
+      <li class="skip">"你怎么证明 Agent 是好的?"——没有 E6 这题答不实</li>
     </ul>
   </div>
 
   <div class="tier">
-    <h3>🔴 第三档:生产级多用户服务</h3>
-    <div class="when" style="color:var(--red)">较远,需 E6~E10 全部完成</div>
+    <h3>🔵 投递前的收尾材料</h3>
+    <div class="when" style="color:var(--green)">约 1~2 次开发迭代</div>
     <ul>
-      <li class="todo">完整评测回归 + 质量告警(E6 全量)</li>
-      <li class="todo">真实 Embedding 检索质量(E8)</li>
-      <li class="todo">长期记忆与上下文治理(E7)</li>
-      <li class="todo">工具权限审批 + 沙箱(E9)</li>
-      <li class="todo">安全测试(注入/越权)+ 压测</li>
+      <li class="todo">README 配演示 GIF/截图(30 秒看懂)</li>
+      <li class="todo">2~3 分钟演示视频(真实模型聊天+工具调用)</li>
+      <li class="todo">简历项目描述(用调研第七节的高信号表述)</li>
+      <li class="todo">面试问答稿(从 22 篇教程提炼)</li>
+    </ul>
+  </div>
+
+  <div class="tier">
+    <h3>⚪ 有余力再加分的(可选,不阻塞投递)</h3>
+    <div class="when" style="color:var(--muted)">投递后边面试边做也行</div>
+    <ul>
+      <li class="todo">MCP 接入(E9 前半,2026 招聘热词)</li>
+      <li class="todo">上下文压缩与长期记忆(E7,面试常问)</li>
+      <li class="skip">生产部署/HTTPS/备份 —— 简历零加分,不做</li>
+      <li class="skip">PostgreSQL/管理员后台 —— 不做</li>
     </ul>
   </div>
 </div>
 
 <p class="foot">
-  过去一周完成了 E2~E5 四个批次 · 按此节奏第二档约 1~2 周 ·
-  本地图随大里程碑更新,权威进度以 docs/规划/开发路线图.md 为准
+  建议节奏:E6(2~3 次)→ 收尾材料(1~2 次)→ 开始投递,共约 4~5 次迭代 ·
+  加分项面试期间穿插 · 本地图随大里程碑更新,权威进度以 docs/规划/开发路线图.md 为准
 </p>
 
 </body>
