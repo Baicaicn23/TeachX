@@ -1,14 +1,24 @@
 # TeachX 演示视频(Remotion)
 
-用 React 代码驱动动画渲染的 37 秒项目演示片,四幕:开场 → Agent Loop 架构 →
-可靠性事件流 → 评测数字 → 结尾。与主项目完全独立,不影响前端构建。
+用 React 代码驱动动画渲染的两支演示片,与主项目完全独立,不影响前端构建:
+
+| 合成 | 时长 | 内容 | 输出 |
+| --- | --- | --- | --- |
+| `TeachXDemo` | 37 秒 | 面向技术观众:Agent Loop 架构 → 可靠性事件流 → 评测数字 | `out/teachx-demo.mp4` |
+| `TeachXUsage` | 65 秒 | 面向普通用户:注册引导 → 流式问答与来源 → 工具计算 → 错题 → 练习复习 → 目标 → 学习闭环 | `out/teachx-usage.mp4` |
+
+`TeachXUsage` 用"风格化浏览器窗口 mockup"模拟界面(红黄绿圆点窗口框 + 简化页面),
+打字机效果模拟流式回答,九个镜头带底部字幕,完整脚本见
+[使用流程视频提示词.md](使用流程视频提示词.md)。
 
 ## 渲染成 MP4
 
 ```bash
 cd video
-npm install                       # 首次
-npm run render                    # 输出 out/teachx-demo.mp4(1920×1080, 30fps, 37 秒)
+npm install                                  # 首次
+npm run render                               # TeachXDemo → out/teachx-demo.mp4
+npx remotion render src/index.ts TeachXUsage out/teachx-usage.mp4 \
+  --browser-executable="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 ```
 
 渲染脚本已指向本机 Chrome(`--browser-executable`),不需要下载无头 Chromium。
@@ -20,12 +30,14 @@ npm run render                    # 输出 out/teachx-demo.mp4(1920×1080, 30fps
 npm run studio                    # 打开 Remotion Studio,逐帧预览、热更新
 ```
 
-改动画直接编辑 `src/TeachXDemo.tsx`:每个场景是一个 React 组件,时间轴在
-`Root.tsx` 的 `durationInFrames` 和 `TeachXDemo.tsx` 各 Scene 的帧数常量
-(INTRO / LOOP / EVENTS / METRICS / OUTRO,30 帧 = 1 秒)。
+改动画直接编辑 `src/TeachXDemo.tsx` 或 `src/TeachXUsage.tsx`:每个场景是一个
+React 组件,时间轴在各 Scene 的帧数常量(30 帧 = 1 秒),总时长在
+`Root.tsx` 的 `durationInFrames`。
 
 ## 设计约定
 
 - 深色主题与项目进度地图一致(`C` 常量)
 - 不引外部字体/图片,离线可渲染
+- 场景切换一律用 `<Sequence>`(它会把子组件的 `useCurrentFrame()` 切到幕内
+  本地帧——自写帧门控拿到的会是全局帧,动画会全部"停在结束状态",这是踩过的坑)
 - 场景内动画只用 `useCurrentFrame` + `interpolate` + `spring`,不引额外动画库
