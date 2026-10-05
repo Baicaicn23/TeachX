@@ -60,6 +60,17 @@ def test_dataset_is_valid_and_self_consistent() -> None:
         assert item["gold"] in corpus, f"gold 不在语料中: {item['gold']}"
 
 
+def test_semantic_dataset_is_valid_and_self_consistent() -> None:
+    dataset = load_dataset(
+        DEFAULT_DATASET.parent / "rag_retrieval_semantic.json"
+    )
+
+    assert len(dataset["queries"]) >= 5
+    corpus = "\n".join(doc["content"] for doc in dataset["documents"])
+    for item in dataset["queries"]:
+        assert item["gold"] in corpus, f"gold 不在语料中: {item['gold']}"
+
+
 @pytest.mark.asyncio
 async def test_end_to_end_eval_meets_floor() -> None:
     """端到端跑真实检索管线,分数不得低于回归底线。

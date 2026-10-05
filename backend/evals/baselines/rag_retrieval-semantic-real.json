@@ -1,0 +1,105 @@
+{
+  "dataset": "rag-retrieval-semantic",
+  "embedding_provider": "openai",
+  "embedding_model": "embedding-3",
+  "query_count": 6,
+  "rows": [
+    {
+      "query": "变换之后方向没变的那些向量,长度会怎么变化?",
+      "gold": "长度被拉伸或压缩为原来的 λ 倍",
+      "relevant_count": 1,
+      "retrieved_count": 5,
+      "hit_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "recall_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "为什么两个矩阵先后作用的效果顺序不能随便调换?",
+      "gold": "一般情况下 AB 不等于 BA",
+      "relevant_count": 1,
+      "retrieved_count": 5,
+      "hit_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "recall_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "一个方阵在什么情况下没有办法求出它的逆?",
+      "gold": "行列式为零当且仅当矩阵不可逆",
+      "relevant_count": 1,
+      "retrieved_count": 5,
+      "hit_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "recall_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "reciprocal_rank": 0.5
+    },
+    {
+      "query": "怎么确认几条向量彼此之间没法互相表出来?",
+      "gold": "系数矩阵只有零解说明线性无关",
+      "relevant_count": 1,
+      "retrieved_count": 5,
+      "hit_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "recall_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "reciprocal_rank": 0.5
+    },
+    {
+      "query": "行列互换后和自己一模一样的矩阵有什么特别的性质?",
+      "gold": "特征值全是实数",
+      "relevant_count": 1,
+      "retrieved_count": 5,
+      "hit_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "recall_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "reciprocal_rank": 0.5
+    },
+    {
+      "query": "一个向量空间能装多少内容,是由什么决定的?",
+      "gold": "基向量的个数就是空间的维数",
+      "relevant_count": 1,
+      "retrieved_count": 5,
+      "hit_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "recall_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "reciprocal_rank": 0.5
+    }
+  ],
+  "aggregate": {
+    "hit@3": 1.0,
+    "hit@5": 1.0,
+    "recall@3": 1.0,
+    "recall@5": 1.0,
+    "mrr": 0.6666666666666666
+  }
+}

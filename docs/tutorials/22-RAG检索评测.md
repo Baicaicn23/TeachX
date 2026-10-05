@@ -160,15 +160,26 @@ uv run python -m teachx.evals.run_rag_eval \
   --baseline evals/baselines/rag_retrieval.json
 ```
 
-**实测记录(2026-10-04)**:本地唯一可用的 DeepSeek 平台探测结果为
-`/embeddings` 返回 404——该平台没有 embeddings 端点(认证本身是通过的)。
-结论:DeepSeek 只能当聊天模型,**Embedding 需要另找支持 embeddings 的
-OpenAI 兼容平台**(智谱 / 硅基流动 / DashScope / OpenAI 等),配好
-`OPENAI_API_KEY` 与 `OPENAI_BASE_URL` 后执行上面的命令即可。
+**实测记录(2026-10-05,E8 完成)**:
 
-为什么对比有价值:当前 0.688 的 MRR 是"FTS 主导"的成绩——考卷里的查询和
-文档共享关键词。真实 Embedding 上线后,语义改写型查询("怎么求缩放倍数"
-命中特征值内容)才能被召回,同一份考卷的分数变化就是最直观的验收证据。
+1. 本地 DeepSeek 平台探测 `/embeddings` 返回 404——它没有 embeddings 端点。
+   结论:DeepSeek 只能当聊天模型,Embedding 换用智谱(open.bigmodel.cn,
+   `embedding-3`,2048 维),OpenAI 兼容接入零代码改动。
+2. **关键词考卷**(原 8 题):Mock 与真实 Embedding 打平——Hit@3 = 1.0、
+   MRR = 0.688 双双持平。原因:考卷查询和文档共享关键词,FTS 已饱和。
+3. **新增语义改写考卷**(`rag_retrieval_semantic.json`,6 题):同一语料,
+   查询刻意避开原文关键词,模拟真实学习者的问法。结果:
+
+   | 考卷 | Mock(FTS 主导) | 智谱 embedding-3 |
+   | --- | --- | --- |
+   | 关键词考卷 MRR | 0.688 | 0.688(无退化) |
+   | 语义考卷 MRR | 0.639 | **0.667** |
+   | 语义考卷"转置矩阵"题 RR | 0.33 | **0.50** |
+
+结论(面试可直接引用):关键词场景下向量通道不添乱(无退化);跨表述查询时
+真实 Embedding 修正了排序(MRR +0.028,单题 RR +0.17)。语料只有 5 篇、
+Hit@3 已饱和,差距主要体现在 MRR——语料扩大后差距会进一步拉开。切换
+Provider 全程零代码改动,这就是 Provider 接口分层买的单。
 
 ## 八、面试问答
 

@@ -1,0 +1,135 @@
+{
+  "dataset": "rag-retrieval-basics",
+  "embedding_provider": "openai",
+  "embedding_model": "embedding-3",
+  "query_count": 8,
+  "rows": [
+    {
+      "query": "什么是矩阵的特征值和特征向量?",
+      "gold": "满足 Av = λv",
+      "relevant_count": 1,
+      "retrieved_count": 5,
+      "hit_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "recall_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "怎么求一个矩阵的特征值?",
+      "gold": "解特征方程 det(A - λI) = 0",
+      "relevant_count": 1,
+      "retrieved_count": 5,
+      "hit_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "recall_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "reciprocal_rank": 0.5
+    },
+    {
+      "query": "矩阵乘法满足结合律吗?",
+      "gold": "矩阵乘法满足结合律",
+      "relevant_count": 1,
+      "retrieved_count": 5,
+      "hit_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "recall_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "两个矩阵相乘在几何上表示什么?",
+      "gold": "线性变换的复合",
+      "relevant_count": 1,
+      "retrieved_count": 5,
+      "hit_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "recall_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "如何判断一组向量是不是线性无关?",
+      "gold": "只有零解",
+      "relevant_count": 1,
+      "retrieved_count": 5,
+      "hit_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "recall_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "reciprocal_rank": 0.5
+    },
+    {
+      "query": "向量空间的基是什么定义?",
+      "gold": "线性无关且能张成整个空间",
+      "relevant_count": 1,
+      "retrieved_count": 5,
+      "hit_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "recall_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "reciprocal_rank": 0.5
+    },
+    {
+      "query": "行列式的几何意义是什么?",
+      "gold": "体积缩放因子",
+      "relevant_count": 1,
+      "retrieved_count": 5,
+      "hit_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "recall_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "reciprocal_rank": 0.5
+    },
+    {
+      "query": "什么样的矩阵叫对称矩阵?",
+      "gold": "等于其转置",
+      "relevant_count": 1,
+      "retrieved_count": 5,
+      "hit_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "recall_at_k": {
+        "3": 1.0,
+        "5": 1.0
+      },
+      "reciprocal_rank": 0.5
+    }
+  ],
+  "aggregate": {
+    "hit@3": 1.0,
+    "hit@5": 1.0,
+    "recall@3": 1.0,
+    "recall@5": 1.0,
+    "mrr": 0.6875
+  }
+}

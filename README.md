@@ -91,8 +91,9 @@ OPENAI_API_KEY=你的密钥
 ./scripts/check.sh     # 预期 All checks passed（后端测试全绿,全程 Mock 零 API 消耗）
 ```
 
-- 检索质量可复现：`cd backend && uv run python -m teachx.evals.run_rag_eval`
-  （基线 Hit@3 = 1.0 · MRR = 0.688，退化超容差自动报错）
+- 检索质量可复现:固定评测集(关键词卷 + 语义改写卷)双基线;真实 Embedding
+  (智谱 embedding-3)接入后语义卷 MRR 0.639 → 0.667,关键词卷无退化,
+  退化自动拦截:`cd backend && uv run python -m teachx.evals.run_rag_eval`
 - 失败定位：`uv run python -m teachx.runtime.turn_trace --session <会话id>`
   （把失败定位到模型 / 检索 / 工具 / 编排 / 费用五层之一）
 - 前端生产构建：47 条路由（`cd frontend && npm run build`）
