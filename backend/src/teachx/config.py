@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     turn_timeout_seconds: float = Field(default=300.0, ge=0)
     generate_titles: bool = False
     include_stream_usage: bool = True
+    # P0 意图识别与多 Agent 路由:intent_llm_enabled 控制是否用 LLM 复核
+    # (关闭后只走规则分类,零 API 消耗)。
+    intent_enabled: bool = True
+    intent_llm_enabled: bool = True
 
     daily_token_budget: int = Field(default=0, ge=0)
     budget_exceeded_action: Literal["block", "mock"] = "block"

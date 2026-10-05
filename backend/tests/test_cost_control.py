@@ -114,6 +114,9 @@ async def _runtime(
         generate_titles=generate_titles,
         daily_token_budget=daily_token_budget,
         budget_exceeded_action=budget_exceeded_action,  # type: ignore[arg-type]
+        # 本组测试只验证主循环与标题的费用记账;意图识别的 LLM 调用记账
+        # 由 test_intent_routing 单独覆盖。
+        intent_llm_enabled=False,
     )
     return runtime, repository, usage, recording  # type: ignore[return-value]
 

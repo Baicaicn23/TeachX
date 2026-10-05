@@ -111,6 +111,8 @@ async def lifespan(app: FastAPI):
         generate_titles=settings.generate_titles,
         daily_token_budget=settings.daily_token_budget,
         budget_exceeded_action=settings.budget_exceeded_action,
+        intent_enabled=settings.intent_enabled,
+        intent_llm_enabled=settings.intent_llm_enabled,
     )
     app.state.container = ApplicationContainer(
         settings=settings,

@@ -18,6 +18,13 @@ from teachx.providers.base import (
     ToolCall,
 )
 from teachx.providers.mock import MockProvider
+from teachx.runtime.intents import (
+    AgentProfile,
+    IntentResult,
+    build_agent_prompt,
+    detect_intent,
+    get_agent_profile,
+)
 from teachx.runtime.prompts import PROMPT_VERSION, build_system_prompt
 from teachx.runtime.tools import ToolContext, ToolRegistry, ToolResult
 from teachx.schemas import SessionMessage, StartTurnCommand
@@ -68,6 +75,8 @@ class AgentRuntime:
         generate_titles: bool = False,
         daily_token_budget: int = 0,
         budget_exceeded_action: Literal["block", "mock"] = "block",
+        intent_enabled: bool = True,
+        intent_llm_enabled: bool = True,
     ) -> None:
         self.provider = provider
         self.tools = tools
@@ -85,6 +94,8 @@ class AgentRuntime:
         self.generate_titles = generate_titles
         self.daily_token_budget = daily_token_budget
         self.budget_exceeded_action = budget_exceeded_action
+        self.intent_enabled = intent_enabled
+        self.intent_llm_enabled = intent_llm_enabled
 
     async def run_turn(
         self,
@@ -110,6 +121,19 @@ class AgentRuntime:
             active_provider = MockProvider()
         command.capability = command.capability or "chat"
         fallback_title = self._title_from_prompt(command.content)
+        # P0 意图识别:回合开始前判断用户意图,决定子 agent 提示词与工具子集。
+        # 识别永不抛异常;关闭路由时退回默认 chat 配置(与引入前行为一致)。
+        intent_result: IntentResult | None = None
+        profile: AgentProfile = get_agent_profile("chat")
+        if self.intent_enabled:
+            # 预算已超限且策略为 block 时不再发起意图 LLM 调用——本轮注定
+            # 被阻止,不应为识别白花 token。
+            intent_result = await detect_intent(
+                command.content,
+                active_provider,
+                llm_enabled=self.intent_llm_enabled and not budget_blocked,
+            )
+            profile = get_agent_profile(intent_result.intent)
         session_id = await self.repository.ensure_session(
             command.session_id,
             title=fallback_title,
@@ -155,15 +179,10 @@ class AgentRuntime:
             history,
             user_message,
             learner_profile=learner_profile,
+            profile=profile,
         )
         history_messages_used = max(0, len(messages) - 2)
-        enabled_tools = ["calculator"] if command.tools is None else list(command.tools)
-        # MCP 桥接的动态工具默认全部启用(mcp_ 前缀),外部工具生态即插即用。
-        for name in self.tools.names():
-            if name.startswith("mcp_") and name not in enabled_tools:
-                enabled_tools.append(name)
-        if command.knowledge_bases and "knowledge_search" not in enabled_tools:
-            enabled_tools.append("knowledge_search")
+        enabled_tools = self._enabled_tools_for(command, profile)
         tool_schemas = self.tools.schemas(enabled_tools)
         tool_context = ToolContext(
             session_id=session_id,
@@ -178,6 +197,18 @@ class AgentRuntime:
         rounds_used = 0
         tool_call_count = 0
         usage_calls: list[dict[str, Any]] = []
+        if intent_result is not None and intent_result.usage is not None:
+            usage_calls.append(
+                await self._record_usage(
+                    user_id=user_id,
+                    session_id=session_id,
+                    turn_id=turn_id,
+                    call_kind="intent_detection",
+                    provider=active_provider,
+                    usage=intent_result.usage,
+                    billable=active_provider.name != "mock",
+                )
+            )
 
         if budget_blocked:
             message = "今日 token 预算已用完。为避免继续产生费用，本轮未调用真实模型。"
@@ -209,6 +240,15 @@ class AgentRuntime:
                     "history_messages_used": history_messages_used,
                     "budget": budget_status,
                     "usage_summary": self._usage_summary([], budget_status),
+                    **(
+                        {
+                            "intent": intent_result.intent,
+                            "intent_detector": intent_result.detector,
+                            "agent": profile.agent,
+                        }
+                        if intent_result is not None
+                        else {}
+                    ),
                 },
             }
             return
@@ -310,13 +350,17 @@ class AgentRuntime:
                                     "round": round_index + 1,
                                     "batch_size": len(batch),
                                     "parallel": len(batch) > 1,
+                                    "intent": (
+                                        intent_result.intent if intent_result else ""
+                                    ),
+                                    "agent": profile.agent,
                                 },
                             )
                             saved_events.append(yield_event)
                             yield yield_event
 
                         outcomes = await self._execute_tool_batch_guarded(
-                            batch, tool_context, deadline
+                            batch, tool_context, deadline, profile
                         )
                         for call, tool_result in zip(batch, outcomes, strict=True):
                             context_content = self._truncate_tool_result(tool_result.content)
@@ -453,6 +497,16 @@ class AgentRuntime:
 
             usage_summary = self._usage_summary(usage_calls, budget_status)
             partial_turn = turn_error_code is not None
+            intent_metadata = (
+                {
+                    "intent": intent_result.intent,
+                    "intent_confidence": intent_result.confidence,
+                    "intent_detector": intent_result.detector,
+                    "agent": profile.agent,
+                }
+                if intent_result is not None
+                else {}
+            )
 
             assistant_message = None
             if final_content:
@@ -465,6 +519,7 @@ class AgentRuntime:
                     "history_messages_used": history_messages_used,
                     "budget_fallback": budget_fallback,
                     "usage_summary": usage_summary,
+                    **intent_metadata,
                 }
                 if partial_turn:
                     assistant_metadata.update(
@@ -500,6 +555,7 @@ class AgentRuntime:
                         "tool_call_count": tool_call_count,
                         "prompt_version": PROMPT_VERSION,
                         **({"partial": True} if partial_turn else {}),
+                        **intent_metadata,
                         "metadata": {"usage_summary": usage_summary},
                     },
                 }
@@ -543,6 +599,7 @@ class AgentRuntime:
                     "budget_fallback": budget_fallback,
                     "budget": budget_status,
                     "usage_summary": usage_summary,
+                    **intent_metadata,
                     **(
                         {"partial": True, "error_code": turn_error_code, "retryable": True}
                         if partial_turn
@@ -717,19 +774,33 @@ class AgentRuntime:
         batch: list[ToolCall],
         tool_context: ToolContext,
         deadline: float | None,
+        profile: AgentProfile | None = None,
     ) -> list[ToolResult]:
         if deadline is None:
-            return await self._execute_tool_batch(batch, tool_context)
+            return await self._execute_tool_batch(batch, tool_context, profile)
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise _TurnTimeoutError("回合时间预算已耗尽")
         try:
             return await asyncio.wait_for(
-                self._execute_tool_batch(batch, tool_context),
+                self._execute_tool_batch(batch, tool_context, profile),
                 timeout=remaining,
             )
         except TimeoutError as exc:
             raise _TurnTimeoutError("回合时间预算已耗尽") from exc
+
+    @staticmethod
+    def _is_tool_blocked(name: str, profile: AgentProfile | None) -> bool:
+        """路由策略的执行层判定:只拦子 agent 明确拒绝的工具。
+
+        默认对话(denied 为空)放行一切请求,与引入路由之前一致;
+        练习/计算 agent 拒绝检索,进度 agent 拒绝全部。
+        """
+        if profile is None:
+            return False
+        if profile.deny_all:
+            return True
+        return name in profile.denied_tools
 
     def _plan_tool_batches(
         self,
@@ -759,10 +830,24 @@ class AgentRuntime:
         self,
         batch: list[ToolCall],
         tool_context: ToolContext,
+        profile: AgentProfile | None = None,
     ) -> list[ToolResult]:
         semaphore = asyncio.Semaphore(self.max_tool_concurrency)
 
         async def run(call: ToolCall):
+            # P0 工具最小权限的执行层兜底:被子 agent 拒绝的工具即使被模型
+            # 请求(提示词注入、幻觉),也不真正执行,只返回失败结果。
+            if self._is_tool_blocked(call.name, profile):
+                return ToolResult(
+                    content=(
+                        f"工具 {call.name} 不在本轮允许列表中，已被路由策略阻止。"
+                    ),
+                    success=False,
+                    metadata={
+                        "error_code": "tool_not_allowed",
+                        "retryable": False,
+                    },
+                )
             async with semaphore:
                 return await self.tools.execute(
                     call.name,
@@ -782,16 +867,52 @@ class AgentRuntime:
         user_message: SessionMessage,
         *,
         learner_profile: dict[str, Any] | None = None,
+        profile: AgentProfile | None = None,
     ) -> list[dict[str, Any]]:
         system = build_system_prompt(
             command.capability or "chat",
             command.language or "zh",
             learner_profile=learner_profile,
         )
+        # P0 多 Agent 路由:子 agent 专属提示词叠加在能力提示词之后,
+        # 前端显式选择的能力模式(chat/解题/出题)仍然生效。
+        if profile is not None:
+            system = build_agent_prompt(profile, system)
         messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
         messages.extend(self._trim_history(history))
         messages.append({"role": "user", "content": user_message.content})
         return messages
+
+    def _enabled_tools_for(
+        self,
+        command: StartTurnCommand,
+        profile: AgentProfile,
+    ) -> list[str]:
+        """按子 agent 工具策略装配本轮可用工具。
+
+        基础集合 = 用户显式选择或子 agent 默认集,再叠加 MCP 动态工具与
+        知识库联动;最后应用子 agent 的拒绝策略(黑名单移除 / 全部清空)。
+        路由只按意图收窄权限:默认对话的黑名单为空,用户选择不被推翻。
+        前端默认发送空 tools 列表表示"用户没有选择",视同未选择,按子
+        agent 默认集装配,浏览器回合与 API 回合行为一致。
+        """
+        if not command.tools:
+            enabled_tools = list(profile.default_tools)
+        else:
+            enabled_tools = list(command.tools)
+        if profile.allow_mcp_tools:
+            # MCP 桥接的动态工具默认全部启用(mcp_ 前缀),外部工具生态即插即用。
+            for name in self.tools.names():
+                if name.startswith("mcp_") and name not in enabled_tools:
+                    enabled_tools.append(name)
+        if command.knowledge_bases and "knowledge_search" not in enabled_tools:
+            enabled_tools.append("knowledge_search")
+        if profile.deny_all:
+            return []
+        if profile.denied_tools:
+            denied = set(profile.denied_tools)
+            enabled_tools = [name for name in enabled_tools if name not in denied]
+        return enabled_tools
 
     async def _generate_title(
         self,

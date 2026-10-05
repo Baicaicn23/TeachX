@@ -1,0 +1,14 @@
+{
+  "name": "intent-rules",
+  "description": "规则意图分类器基线(run_intent_eval 生成)",
+  "detector": "rule",
+  "accuracy": 1.0,
+  "per_intent": {
+    "calculation": 1.0,
+    "concept_explain": 1.0,
+    "practice": 1.0,
+    "progress": 1.0,
+    "retrieval": 1.0,
+    "smalltalk": 1.0
+  }
+}
