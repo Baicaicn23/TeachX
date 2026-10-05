@@ -73,3 +73,8 @@ ws://127.0.0.1:8010/ws
 
 `tool_result` 事件会携带尝试次数、重试信息、耗时和幂等去重标记,
 字段说明见[工具执行教程](../tutorials/19-工具执行政策与重试.md)。
+
+意图路由开启时(默认),`tool_call` 事件的 metadata 带 `intent` 与 `agent`
+字段;`result` / `done` 事件与助手消息的 metadata 带 `intent`、
+`intent_confidence`、`intent_detector`(`rule` / `llm` / `fallback`)和
+`agent` 字段,字段含义见[意图路由教程](../tutorials/25-意图识别与多Agent路由.md)。
