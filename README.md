@@ -37,6 +37,41 @@ TeachX 是一个受 [DeepTutor](https://github.com/HKUDS/DeepTutor) 启发的独
 | 🔌 | **多模型接入** | 统一 Provider 接口，用户自带 DeepSeek/OpenAI Key（加密存储），已真实联调 |
 | 🎓 | **真实学习闭环** | 个性化提示词 · 首次引导 · 错题记录 · 练习复习 · 学习目标，多用户数据隔离 |
 
+## 🖼 核心功能一览（真实运行界面）
+
+### 🔎 混合检索 RAG——每个回答都有出处
+
+上传资料后提问，回答基于检索到的片段生成，并附**知识库来源引用**（哪个文件、哪个片段），
+同时展示本轮 token 消耗。检索走 FTS5 + 向量 + RRF 融合，并自动继承用户数据权限。
+
+<img src="docs/screenshots/rag-sources.png" width="820" alt="RAG 检索与来源引用">
+
+### 🧩 Agent Loop——模型与工具的多轮协作
+
+模型决定何时调用工具：下例中知识检索工具先执行，结果回填后模型继续推理，
+回合状态条显示"已完成 · 0s · 1 次工具调用"；整条链路
+`WebSocket → Agent Runtime → Tool Registry → Session Storage` 在回答中一目了然。
+
+<img src="docs/screenshots/agent-loop-tool.png" width="820" alt="Agent Loop 工具调用">
+
+### 🧠 上下文记忆——它记得你是谁
+
+学习档案（阶段、目标、进度、讲解风格）注入系统提示词，聊天页实时显示个性化状态与
+目标进度条；对话变长后旧消息自动压缩为"前情提要"，关键信息不丢、token 可控。
+
+<img src="docs/screenshots/memory-context.png" width="820" alt="个性化状态与学习目标">
+
+### 🔌 MCP 工具接入——即插即用的外部工具生态
+
+自写的最小 MCP stdio 客户端（JSON-RPC 2.0，零依赖）在应用启动时连接外部 server，
+发现并注册远端工具，Agent 无感使用：
+
+```text
+[mcp] server=demo 注册工具: ['mcp_demo_fake_echo']   ← 真实启动日志
+```
+
+配置即接入：`TEACHX_MCP_SERVERS='[{"name":"demo","command":"python","args":["server.py"]}]'`
+
 <details>
 <summary><b>当前边界（诚实说明，也是下一步方向）</b></summary>
 
