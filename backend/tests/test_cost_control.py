@@ -277,7 +277,11 @@ def test_history_and_tool_result_limits_are_deterministic() -> None:
     ]
 
     trimmed = runtime._trim_history(history)
-    assert [item["content"] for item in trimmed] == [
+    # E7 起,超出窗口的 message-1/2 会压缩为一条"前情提要"置顶。
+    assert "前情提要" in trimmed[0]["content"]
+    assert "message-1" in trimmed[0]["content"]
+    assert "message-2" in trimmed[0]["content"]
+    assert [item["content"] for item in trimmed[1:]] == [
         "message-3",
         "message-4",
         "message-5",

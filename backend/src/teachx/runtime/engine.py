@@ -63,6 +63,8 @@ class AgentRuntime:
         max_tool_result_chars: int = 6000,
         max_tool_concurrency: int = 4,
         turn_timeout_seconds: float = 300.0,
+        history_summary_enabled: bool = True,
+        summary_snippet_chars: int = 50,
         generate_titles: bool = False,
         daily_token_budget: int = 0,
         budget_exceeded_action: Literal["block", "mock"] = "block",
@@ -78,6 +80,8 @@ class AgentRuntime:
         self.max_tool_result_chars = max_tool_result_chars
         self.max_tool_concurrency = max(1, int(max_tool_concurrency))
         self.turn_timeout_seconds = max(0.0, float(turn_timeout_seconds))
+        self.history_summary_enabled = history_summary_enabled
+        self.summary_snippet_chars = max(1, int(summary_snippet_chars))
         self.generate_titles = generate_titles
         self.daily_token_budget = daily_token_budget
         self.budget_exceeded_action = budget_exceeded_action
@@ -839,8 +843,19 @@ class AgentRuntime:
             for message in history
             if message.role != "system"
         ]
-        if self.max_history_messages > 0:
+        # E7 上下文压缩:超出保留窗口的旧消息不丢弃,压成一段"前情提要",
+        # 作为紧跟系统提示词的 system 消息进入上下文。
+        overflow: list[dict[str, Any]] = []
+        if self.max_history_messages > 0 and len(items) > self.max_history_messages:
+            overflow = items[: -self.max_history_messages]
             items = items[-self.max_history_messages :]
+
+        messages: list[dict[str, Any]] = []
+        if overflow and self.history_summary_enabled:
+            summary = self._build_history_summary(overflow)
+            if summary:
+                messages.append({"role": "system", "content": summary})
+
         if self.max_history_chars > 0:
             selected: list[dict[str, Any]] = []
             used_chars = 0
@@ -853,7 +868,18 @@ class AgentRuntime:
             items = list(reversed(selected))
         while items and items[0]["role"] != "user":
             items.pop(0)
-        return items
+        messages.extend(items)
+        return messages
+
+    def _build_history_summary(self, overflow: list[dict[str, Any]]) -> str:
+        lines = [f"【前情提要】更早的 {len(overflow)} 条对话已压缩为要点:"]
+        for item in overflow:
+            role = "用户" if item["role"] == "user" else "助手"
+            snippet = " ".join(str(item["content"]).split())
+            if len(snippet) > self.summary_snippet_chars:
+                snippet = snippet[: self.summary_snippet_chars] + "…"
+            lines.append(f"- {role}:{snippet}" if snippet else f"- {role}:（空消息）")
+        return "\n".join(lines)
 
     def _truncate_tool_result(self, content: str) -> str:
         if self.max_tool_result_chars <= 0 or len(content) <= self.max_tool_result_chars:
