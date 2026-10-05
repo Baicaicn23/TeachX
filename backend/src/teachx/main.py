@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -17,6 +18,7 @@ from teachx.model_connections.service import ModelConnectionService
 from teachx.practice.service import PracticeService
 from teachx.providers import build_provider
 from teachx.runtime.engine import AgentRuntime
+from teachx.runtime.mcp_client import McpBridge, McpStdioClient
 from teachx.runtime.tool_executions import ToolExecutionStore
 from teachx.runtime.tools import ToolExecutionDefaults, build_default_registry
 from teachx.storage.database import Database
@@ -72,6 +74,25 @@ async def lifespan(app: FastAPI):
         idempotency_enabled=settings.tool_idempotency_enabled,
         redaction_enabled=settings.tool_redaction_enabled,
     )
+    # E9:注册 MCP server 的远端工具(学习版)。单个 server 不可用只告警,
+    # 不阻塞应用启动。
+    try:
+        server_specs = json.loads(settings.mcp_servers) if settings.mcp_servers else []
+    except json.JSONDecodeError:
+        print(f"[mcp] TEACHX_MCP_SERVERS 不是合法 JSON,已忽略: {settings.mcp_servers[:80]}")
+        server_specs = []
+    for spec in server_specs:
+        name = str(spec.get("name") or "mcp")
+        command = [str(spec.get("command") or "")] + [str(a) for a in spec.get("args", [])]
+        if not command[0]:
+            continue
+        try:
+            client = McpStdioClient(command)
+            bridge = McpBridge(name, client)
+            registered = await bridge.register_into(tools)
+            print(f"[mcp] server={name} 注册工具: {registered}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"[mcp] server={name} 连接失败,已跳过: {exc}")
     provider = build_provider(settings)
     runtime = AgentRuntime(
         provider=provider,

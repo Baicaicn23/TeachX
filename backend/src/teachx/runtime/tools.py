@@ -293,6 +293,10 @@ class ToolRegistry:
     def get(self, name: str) -> BaseTool | None:
         return self._tools.get(name)
 
+    def names(self) -> list[str]:
+        """全部已注册工具名(含 MCP 桥接的动态工具)。"""
+        return list(self._tools.keys())
+
     def is_read_only(self, name: str) -> bool:
         """Whether one tool declares itself safe for bounded concurrency.
 

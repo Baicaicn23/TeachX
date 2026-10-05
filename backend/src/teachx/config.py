@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     max_history_chars: int = Field(default=16000, ge=0)
     history_summary_enabled: bool = True
     summary_snippet_chars: int = Field(default=50, ge=1)
+    # JSON 数组字符串:[{"name": "demo", "command": "python", "args": ["-u", "server.py"]}]
+    mcp_servers: str = ""
     max_tool_result_chars: int = Field(default=6000, ge=0)
     tool_max_attempts: int = Field(default=3, ge=1)
     tool_timeout_seconds: float = Field(default=30.0, gt=0)

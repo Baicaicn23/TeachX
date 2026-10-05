@@ -158,6 +158,10 @@ class AgentRuntime:
         )
         history_messages_used = max(0, len(messages) - 2)
         enabled_tools = ["calculator"] if command.tools is None else list(command.tools)
+        # MCP 桥接的动态工具默认全部启用(mcp_ 前缀),外部工具生态即插即用。
+        for name in self.tools.names():
+            if name.startswith("mcp_") and name not in enabled_tools:
+                enabled_tools.append(name)
         if command.knowledge_bases and "knowledge_search" not in enabled_tools:
             enabled_tools.append("knowledge_search")
         tool_schemas = self.tools.schemas(enabled_tools)
