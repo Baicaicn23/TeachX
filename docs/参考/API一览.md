@@ -29,6 +29,8 @@ PUT    /api/auth/profile/learner-profile       更新学习档案(目标、进�
 PUT    /api/auth/profile/avatar                上传图片头像
 DELETE /api/auth/profile/avatar                删除图片头像
 GET    /api/auth/avatar/{user_id}              读取头像
+GET    /api/auth/memories                      列出当前用户的跨会话长期记忆
+DELETE /api/auth/memories/{memory_id}          删除一条长期记忆(仅自己的)
 ```
 
 ## 学习记录
