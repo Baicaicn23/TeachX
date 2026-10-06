@@ -55,12 +55,18 @@ async def run_eval(
     k_values: tuple[int, ...] = K_VALUES,
     embedding_provider: str = "mock",
     embedding_model: str | None = None,
+    rrf_k: int = 60,
+    recall_depth: int = 3,
+    expand_synonyms: bool = True,
 ) -> dict[str, Any]:
     """建临时知识库 → 灌入语料 → 逐题检索 → 计算指标。
 
     embedding_provider 默认 mock(hash 哑向量,确定性、零消耗);传 "openai"
     时走真实 Embeddings API(需要 OPENAI_API_KEY / OPENAI_BASE_URL 指向支持
     embeddings 的平台),用于 E8 的前后对比。
+
+    P2 扫参入口:rrf_k / recall_depth / expand_synonyms 透传给检索服务,
+    供量化对比(见教程 27);默认值即当前选定配置。
     """
     dataset = load_dataset(dataset_path)
     max_k = max(k_values)
@@ -81,7 +87,14 @@ async def run_eval(
                 f"embedding provider={embedding_provider} 未构建成功,"
                 "请检查 OPENAI_API_KEY / OPENAI_BASE_URL 配置"
             )
-        service = KnowledgeService(database, knowledge_root, embedder=embedder)
+        service = KnowledgeService(
+            database,
+            knowledge_root,
+            embedder=embedder,
+            recall_depth=recall_depth,
+            rrf_k=rrf_k,
+            expand_synonyms=expand_synonyms,
+        )
         kb = dataset["knowledge_base"]
         owner = dataset["owner_id"]
 
@@ -121,6 +134,11 @@ async def run_eval(
         "dataset": dataset.get("name", dataset_path.stem),
         "embedding_provider": embedding_provider,
         "embedding_model": embedding_model or "default",
+        "params": {
+            "rrf_k": rrf_k,
+            "recall_depth": recall_depth,
+            "expand_synonyms": expand_synonyms,
+        },
         "query_count": len(rows),
         "rows": rows,
         "aggregate": {
@@ -193,6 +211,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--embedding-model", default=None, help="覆盖嵌入模型名")
     parser.add_argument("--save", type=Path, help="把本次结果保存为基线 JSON")
     parser.add_argument("--baseline", type=Path, help="与已保存的基线对比")
+    parser.add_argument("--rrf-k", type=int, default=60, help="RRF 融合常数 k(P2 扫参)")
+    parser.add_argument(
+        "--recall-depth", type=int, default=3, help="每路召回深度倍数(P2 扫参)"
+    )
+    parser.add_argument(
+        "--no-expand", action="store_true", help="关闭同义词查询扩写(P2 A/B)"
+    )
     args = parser.parse_args(argv)
 
     report = asyncio.run(
@@ -200,6 +225,9 @@ def main(argv: list[str] | None = None) -> int:
             args.dataset,
             embedding_provider=args.embedding_provider,
             embedding_model=args.embedding_model,
+            rrf_k=args.rrf_k,
+            recall_depth=args.recall_depth,
+            expand_synonyms=not args.no_expand,
         )
     )
     print_report(report)

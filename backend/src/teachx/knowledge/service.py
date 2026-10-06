@@ -13,6 +13,7 @@ from teachx.knowledge.chunker import TextChunker
 from teachx.knowledge.embeddings import BaseEmbeddingProvider
 from teachx.knowledge.extractors import extract_text
 from teachx.knowledge.models import IngestResult, KnowledgeBaseRecord, SearchHit
+from teachx.knowledge.query_rewrite import expand_query
 from teachx.storage.database import Database
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,14 @@ class KnowledgeError(ValueError):
 
 
 class KnowledgeService:
-    """Own document ingestion, storage, indexing, and retrieval."""
+    """Own document ingestion, storage, indexing, and retrieval.
+
+    P2 检索召回优化的三个接缝都在构造参数上:
+    - ``expand_synonyms``:查询同义词扩写开关(口语 → 语料术语,纯函数);
+    - ``recall_depth``:每路检索的召回深度倍数(取 limit × depth 条进融合);
+    - ``rrf_k``:Reciprocal Rank Fusion 的 k,越小头部排名权重越大。
+    三者都可量化、可回滚,默认值来自 P2 的扫参结果。
+    """
 
     def __init__(
         self,
@@ -33,12 +41,22 @@ class KnowledgeService:
         max_file_bytes: int = 20 * 1024 * 1024,
         chunker: TextChunker | None = None,
         embedder: BaseEmbeddingProvider | None = None,
+        recall_depth: int = 3,
+        rrf_k: int = 60,
+        expand_synonyms: bool = True,
     ) -> None:
         self.database = database
         self.root = root
         self.max_file_bytes = max_file_bytes
         self.chunker = chunker or TextChunker()
         self.embedder = embedder
+        if recall_depth < 1:
+            raise ValueError("recall_depth must be at least 1")
+        if rrf_k < 1:
+            raise ValueError("rrf_k must be at least 1")
+        self.recall_depth = recall_depth
+        self.rrf_k = rrf_k
+        self.expand_synonyms = expand_synonyms
 
     async def create_base(
         self,
@@ -445,21 +463,82 @@ class KnowledgeService:
         if not names:
             return []
 
-        fts_hits = await self._search_fts(
-            query,
+        # P2 第一步:同义词扩写(口语 → 语料术语),纯追加不改写原文。
+        search_query = expand_query(query) if self.expand_synonyms else query
+
+        fused = await self._hybrid_search(
+            search_query, names, limit, owner_id=owner_id, is_admin=is_admin
+        )
+        # P2 第三步:空结果回退。选中库的词汇通道(FTS)一个片段都没命中时,
+        # 判定为"选中的知识库没有字面对得上的资料",扩大到当前用户(同
+        # owner 边界内)的全部知识库再试一次;命中片段标记 widened_bases,
+        # 工具层会向模型如实说明。触发条件只看 FTS 是刻意的:向量相似度
+        # 哪怕在完全无关的语料上也常有噪声分,不能当"资料存在"的证据。
+        if any("fts" in hit.metadata.get("retrievers", []) for hit in fused):
+            return fused
+
+        return await self._hybrid_search(
+            search_query,
             names,
-            limit * 3,
+            limit,
+            owner_id=owner_id,
+            is_admin=is_admin,
+            widen=True,
+            selected=names,
+        )
+
+    async def _hybrid_search(
+        self,
+        search_query: str,
+        names: list[str],
+        limit: int,
+        *,
+        owner_id: str = "",
+        is_admin: bool = False,
+        widen: bool = False,
+        selected: list[str] | None = None,
+    ) -> list[SearchHit]:
+        search_names = names
+        if widen:
+            all_bases = await self.list_bases(owner_id, is_admin=is_admin)
+            extra = [base.name for base in all_bases if base.name not in names]
+            if not extra:
+                return []
+            search_names = names + extra
+            if selected is None:
+                selected = names
+
+        fts_hits = await self._search_fts(
+            search_query,
+            search_names,
+            limit * self.recall_depth,
             owner_id=owner_id,
             is_admin=is_admin,
         )
         vector_hits = await self._search_vectors(
-            query,
-            names,
-            limit * 3,
+            search_query,
+            search_names,
+            limit * self.recall_depth,
             owner_id=owner_id,
             is_admin=is_admin,
         )
-        return self._fuse_results([fts_hits, vector_hits], limit)
+        fused = self._fuse_results(
+            [fts_hits, vector_hits], limit, rrf_k=self.rrf_k
+        )
+        if widen and fused:
+            fused = [
+                SearchHit(
+                    chunk_id=hit.chunk_id,
+                    knowledge_base=hit.knowledge_base,
+                    document=hit.document,
+                    chunk_index=hit.chunk_index,
+                    content=hit.content,
+                    score=hit.score,
+                    metadata={**hit.metadata, "widened_bases": True},
+                )
+                for hit in fused
+            ]
+        return fused
 
     async def reindex_embeddings(
         self,
@@ -538,64 +617,70 @@ class KnowledgeService:
         owner_id: str = "",
         is_admin: bool = False,
     ) -> list[SearchHit]:
-        terms = self._query_terms(query)
-        if not terms:
+        like_terms = self._query_terms(query)
+        if not like_terms:
             return []
+        # trigram 索引要求 MATCH 词串不少于 3 个字符;不足的词(2 字中文词、
+        # 短英文)交给 LIKE 兜底。
+        fts_terms = [term for term in like_terms if len(term) >= 3]
         placeholders = ", ".join("?" for _ in names)
         owner_clause, owner_params = self._owner_filter("b", owner_id, is_admin)
-        fts_query = " OR ".join(f'"{term}"' for term in terms)
-        sql = f"""
-            SELECT
-                c.id AS chunk_id,
-                c.kb_name,
-                c.chunk_index,
-                c.content,
-                d.relative_path,
-                bm25(knowledge_chunks_fts) AS rank
-            FROM knowledge_chunks_fts
-            JOIN knowledge_chunks c ON c.id = knowledge_chunks_fts.rowid
-            JOIN knowledge_documents d ON d.id = c.document_id
-            JOIN knowledge_bases b ON b.name = c.kb_name
-            WHERE knowledge_chunks_fts MATCH ?
-              AND c.kb_name IN ({placeholders})
-              {owner_clause}
-            ORDER BY rank
-            LIMIT ?
-        """
-        async with self.database.connect() as connection:
-            try:
-                cursor = await connection.execute(
-                    sql,
-                    (fts_query, *names, *owner_params, limit),
-                )
-                rows = await cursor.fetchall()
-            except Exception:
-                rows = []
+        rows: list[Any] = []
+        if fts_terms:
+            fts_query = " OR ".join(f'"{term}"' for term in fts_terms)
+            sql = f"""
+                SELECT
+                    c.id AS chunk_id,
+                    c.kb_name,
+                    c.chunk_index,
+                    c.content,
+                    d.relative_path,
+                    bm25(knowledge_chunks_fts) AS rank
+                FROM knowledge_chunks_fts
+                JOIN knowledge_chunks c ON c.id = knowledge_chunks_fts.rowid
+                JOIN knowledge_documents d ON d.id = c.document_id
+                JOIN knowledge_bases b ON b.name = c.kb_name
+                WHERE knowledge_chunks_fts MATCH ?
+                  AND c.kb_name IN ({placeholders})
+                  {owner_clause}
+                ORDER BY rank
+                LIMIT ?
+            """
+            async with self.database.connect() as connection:
+                try:
+                    cursor = await connection.execute(
+                        sql,
+                        (fts_query, *names, *owner_params, limit),
+                    )
+                    rows = await cursor.fetchall()
+                except Exception:
+                    rows = []
 
-            if not rows:
-                like_clauses = " OR ".join("c.content LIKE ?" for _ in terms)
-                fallback_sql = f"""
-                    SELECT
-                        c.id AS chunk_id,
-                        c.kb_name,
-                        c.chunk_index,
-                        c.content,
-                        d.relative_path,
-                        0.0 AS rank
-                    FROM knowledge_chunks c
-                    JOIN knowledge_documents d ON d.id = c.document_id
-                    JOIN knowledge_bases b ON b.name = c.kb_name
-                    WHERE ({like_clauses})
-                      AND c.kb_name IN ({placeholders})
-                      {owner_clause}
-                    LIMIT ?
-                """
-                params = [
-                    *[f"%{term}%" for term in terms],
-                    *names,
-                    *owner_params,
-                    limit,
-                ]
+        if not rows:
+            like_clauses = " OR ".join("c.content LIKE ?" for _ in like_terms)
+            fallback_sql = f"""
+                SELECT
+                    c.id AS chunk_id,
+                    c.kb_name,
+                    c.chunk_index,
+                    c.content,
+                    d.relative_path,
+                    0.0 AS rank
+                FROM knowledge_chunks c
+                JOIN knowledge_documents d ON d.id = c.document_id
+                JOIN knowledge_bases b ON b.name = c.kb_name
+                WHERE ({like_clauses})
+                  AND c.kb_name IN ({placeholders})
+                  {owner_clause}
+                LIMIT ?
+            """
+            params = [
+                *[f"%{term}%" for term in like_terms],
+                *names,
+                *owner_params,
+                limit,
+            ]
+            async with self.database.connect() as connection:
                 cursor = await connection.execute(fallback_sql, params)
                 rows = await cursor.fetchall()
 
@@ -679,8 +764,12 @@ class KnowledgeService:
     def _fuse_results(
         rankings: list[list[SearchHit]],
         limit: int,
+        rrf_k: int = 60,
     ) -> list[SearchHit]:
-        """使用 Reciprocal Rank Fusion 合并不同检索器的排名。"""
+        """使用 Reciprocal Rank Fusion 合并不同检索器的排名。
+
+        ``rrf_k`` 越小,各路头部排名的权重越大(P2 扫参后选定默认值)。
+        """
 
         fused: dict[int, dict[str, Any]] = {}
         for ranking in rankings:
@@ -689,7 +778,7 @@ class KnowledgeService:
                     hit.chunk_id,
                     {"hit": hit, "score": 0.0, "retrievers": []},
                 )
-                entry["score"] += 1.0 / (60 + rank)
+                entry["score"] += 1.0 / (rrf_k + rank)
                 entry["retrievers"].append(hit.metadata.get("retriever", "unknown"))
 
         ordered = sorted(fused.values(), key=lambda item: item["score"], reverse=True)
@@ -781,6 +870,12 @@ class KnowledgeService:
 
     @staticmethod
     def _query_terms(query: str) -> list[str]:
+        """检索词 = 完整词元 + 中文 3-gram 滑窗。
+
+        trigram 索引下 MATCH 需要不少于 3 字符的词串:3-gram 与语料中的
+        3 字滑窗一一对应,是中文子串匹配的基本单元(替代旧 2-gram,
+        旧版在 unicode61 索引下本就无法命中)。
+        """
         tokens = re.findall(r"[\w\u4e00-\u9fff]+", query)
         terms: list[str] = []
         for token in tokens:
@@ -789,7 +884,7 @@ class KnowledgeService:
                 continue
             terms.append(clean)
             if re.fullmatch(r"[\u4e00-\u9fff]{3,}", clean):
-                terms.extend(clean[index : index + 2] for index in range(len(clean) - 1))
+                terms.extend(clean[index : index + 3] for index in range(len(clean) - 2))
         return list(dict.fromkeys(terms))
 
     @staticmethod

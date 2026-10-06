@@ -1,5 +1,12 @@
 {
   "dataset": "rag-retrieval-basics",
+  "embedding_provider": "mock",
+  "embedding_model": "default",
+  "params": {
+    "rrf_k": 60,
+    "recall_depth": 3,
+    "expand_synonyms": true
+  },
   "query_count": 8,
   "rows": [
     {
@@ -75,7 +82,7 @@
         "3": 1.0,
         "5": 1.0
       },
-      "reciprocal_rank": 0.5
+      "reciprocal_rank": 1.0
     },
     {
       "query": "向量空间的基是什么定义?",
@@ -90,7 +97,7 @@
         "3": 1.0,
         "5": 1.0
       },
-      "reciprocal_rank": 0.5
+      "reciprocal_rank": 1.0
     },
     {
       "query": "行列式的几何意义是什么?",
@@ -105,7 +112,7 @@
         "3": 1.0,
         "5": 1.0
       },
-      "reciprocal_rank": 0.5
+      "reciprocal_rank": 1.0
     },
     {
       "query": "什么样的矩阵叫对称矩阵?",
@@ -120,7 +127,7 @@
         "3": 1.0,
         "5": 1.0
       },
-      "reciprocal_rank": 0.5
+      "reciprocal_rank": 1.0
     }
   ],
   "aggregate": {
@@ -128,6 +135,6 @@
     "hit@5": 1.0,
     "recall@3": 1.0,
     "recall@5": 1.0,
-    "mrr": 0.6875
+    "mrr": 0.9375
   }
 }

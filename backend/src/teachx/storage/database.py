@@ -222,7 +222,7 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_kb
 ON knowledge_chunks(kb_name, document_id, chunk_index);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_chunks_fts
-USING fts5(content, chunk_id UNINDEXED, kb_name UNINDEXED, tokenize='unicode61');
+USING fts5(content, chunk_id UNINDEXED, kb_name UNINDEXED, tokenize='trigram');
 
 CREATE TABLE IF NOT EXISTS knowledge_chunk_vectors (
     chunk_id INTEGER PRIMARY KEY REFERENCES knowledge_chunks(id) ON DELETE CASCADE,
@@ -286,6 +286,7 @@ class Database:
                 column="onboarding_completed",
                 definition="INTEGER NOT NULL DEFAULT 1",
             )
+            await self._migrate_fts_to_trigram(connection)
             await connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_sessions_user_updated "
                 "ON sessions(user_id, updated_at DESC)"
@@ -295,6 +296,34 @@ class Database:
                 "ON knowledge_bases(owner_id, updated_at DESC)"
             )
             await connection.commit()
+
+    @staticmethod
+    async def _migrate_fts_to_trigram(connection: aiosqlite.Connection) -> None:
+        """P2:把中文全文索引从 unicode61 重建为 trigram。
+
+        unicode61 不切中文——整段中文是一个 token,MATCH 几乎永远查不到,
+        bm25 排序形同虚设,中文检索实际靠 LIKE 兜底(无排序)。trigram 以
+        3 字符滑窗建索引,中文子串检索 + bm25 排序原生可用。tokenizer 无法
+        ALTER,只能整表重建:检测到旧 tokenizer 时,按 knowledge_chunks
+        现有数据重灌索引(幂等,重建后检测即通过)。
+        """
+        cursor = await connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' "
+            "AND name = 'knowledge_chunks_fts'"
+        )
+        row = await cursor.fetchone()
+        if row is None or "trigram" in str(row[0]):
+            return
+        await connection.execute("DROP TABLE knowledge_chunks_fts")
+        await connection.executescript(
+            """
+            CREATE VIRTUAL TABLE knowledge_chunks_fts
+            USING fts5(content, chunk_id UNINDEXED, kb_name UNINDEXED,
+                       tokenize='trigram');
+            INSERT INTO knowledge_chunks_fts (rowid, content, chunk_id, kb_name)
+            SELECT id, content, id, kb_name FROM knowledge_chunks;
+            """
+        )
 
     @staticmethod
     async def _ensure_column(

@@ -245,12 +245,17 @@ class KnowledgeSearchTool(BaseTool):
             raise ToolTransientError("知识库暂时不可用，请稍后重试") from exc
         if not hits:
             return ToolResult(
-                content="知识库中没有找到与该问题相关的资料。",
+                content=(
+                    "知识库中没有找到与该问题相关的资料。"
+                    "可以建议学习者换一种说法（尽量用资料里的术语），"
+                    "或确认已选中正确的知识库。"
+                ),
                 metadata={"sources": [], "query": query},
             )
 
         formatted = []
         sources = []
+        widened = any(hit.metadata.get("widened_bases") for hit in hits)
         for index, hit in enumerate(hits, start=1):
             citation = f"{hit.document} · 片段 {hit.chunk_index + 1}"
             formatted.append(
@@ -267,8 +272,15 @@ class KnowledgeSearchTool(BaseTool):
                     "retrievers": hit.metadata.get("retrievers", []),
                 }
             )
+        content = "\n\n---\n\n".join(formatted)
+        if widened:
+            # 空结果回退扩大了检索范围,如实告知模型,由它向学习者说明。
+            content += (
+                "\n\n(注:选中的知识库没有直接命中,以上结果来自自动扩大范围后"
+                "该学习者的其他知识库。)"
+            )
         return ToolResult(
-            content="\n\n---\n\n".join(formatted),
+            content=content,
             metadata={"sources": sources, "query": query},
         )
 
