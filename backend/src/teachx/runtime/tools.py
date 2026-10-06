@@ -285,6 +285,79 @@ class KnowledgeSearchTool(BaseTool):
         )
 
 
+class SaveToKnowledgeBaseTool(BaseTool):
+    """把用户在对话中给出的题目/笔记沉淀进其学科知识库(P3 后的"沉淀罐"能力)。
+
+    学生的真实痛点:作业散落在系统里,期末没题可复习。这个工具让聊天框
+    变成收集箱——"把这道题存进微积分基础：..."一句话落库,带日期与来源
+    标记,期末即可从库里生成复习材料。落库属写操作:保守政策(串行、
+    不重试),owner 边界与上传接口完全一致(他人的同名库不可写)。
+    """
+
+    name = "save_to_knowledge_base"
+    description = (
+        "当用户明确要求把一道题目、笔记或一段内容保存/沉淀进某个知识库时调用。"
+        "content 应保存用户提供的完整原文(题目+必要上下文),不要缩写或改写。"
+        "knowledge_base 填用户指定的库名;未指定时先追问,不要猜。"
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "knowledge_base": {
+                "type": "string",
+                "description": "目标知识库名称,如'微积分基础'。",
+            },
+            "title": {
+                "type": "string",
+                "description": "这份资料的简短标题,如'作业:极限计算题'。",
+            },
+            "content": {
+                "type": "string",
+                "description": "要保存的完整原文,保留题目条件与用户的疑问。",
+            },
+        },
+        "required": ["knowledge_base", "title", "content"],
+        "additionalProperties": False,
+    }
+    policy = ToolPolicy(read_only=False, max_attempts=1, timeout_seconds=10.0)
+
+    def __init__(self, service: KnowledgeService) -> None:
+        self.service = service
+
+    async def execute(
+        self,
+        context: ToolContext | None = None,
+        **kwargs: Any,
+    ) -> ToolResult:
+        knowledge_base = str(kwargs.get("knowledge_base") or "").strip()
+        title = str(kwargs.get("title") or "").strip()
+        content = str(kwargs.get("content") or "").strip()
+        if not knowledge_base or not title or not content:
+            raise ToolError("knowledge_base、title、content 都是必填项")
+        owner_id = context.user_id if context else ""
+        if not owner_id:
+            raise ToolError("需要登录后才能沉淀内容")
+        dated = (
+            f"# {title}\n\n"
+            f"> 沉淀于 {time.strftime('%Y-%m-%d')} · 来自对话\n\n{content}\n"
+        )
+        result = await self.service.add_document(
+            knowledge_base, f"{title}.md", dated.encode("utf-8"), owner_id=owner_id
+        )
+        return ToolResult(
+            content=(
+                f"已存入知识库「{knowledge_base}」：《{title}》"
+                f"（{result.chunks} 个片段）。期末复习时可以从这个库生成练习题。"
+            ),
+            metadata={
+                "knowledge_base": knowledge_base,
+                "document": result.filename,
+                "chunks": result.chunks,
+                "saved": True,
+            },
+        )
+
+
 class ToolRegistry:
     def __init__(
         self,
@@ -730,6 +803,7 @@ def build_default_registry(
     )
     registry.register(CalculatorTool())
     registry.register(KnowledgeSearchTool(knowledge_service))
+    registry.register(SaveToKnowledgeBaseTool(knowledge_service))
     return registry
 
 

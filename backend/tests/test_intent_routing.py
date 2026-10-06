@@ -349,7 +349,7 @@ async def test_unrecognized_message_falls_back_to_default_chat(tmp_path: Path) -
 
     events = [event async for event in runtime.run_turn(command)]
 
-    assert provider.seen_tool_names[0] == ["calculator"]
+    assert provider.seen_tool_names[0] == ["calculator", "save_to_knowledge_base"]
     done = events[-1]
     assert done["metadata"]["intent"] == INTENT_SMALLTALK
     assert done["metadata"]["agent"] == "chat"

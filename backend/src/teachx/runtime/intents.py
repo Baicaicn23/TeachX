@@ -185,7 +185,7 @@ class AgentProfile:
 AGENT_PROFILES: dict[str, AgentProfile] = {
     INTENT_CONCEPT_EXPLAIN: AgentProfile(
         agent="tutor",
-        default_tools=("calculator",),
+        default_tools=("calculator", "save_to_knowledge_base"),
         allow_mcp_tools=True,
         system_prompt=(
             "你现在是讲解导师。先用学习者能懂的语言拆解概念,再给一个具体例子;"
@@ -218,7 +218,7 @@ AGENT_PROFILES: dict[str, AgentProfile] = {
     ),
     INTENT_RETRIEVAL: AgentProfile(
         agent="retriever",
-        default_tools=("knowledge_search",),
+        default_tools=("knowledge_search", "save_to_knowledge_base"),
         allow_mcp_tools=False,
         system_prompt=(
             "你现在是资料检索助手。把学习者的需求改写成聚焦的检索词,调用知识检索,"
@@ -237,8 +237,9 @@ AGENT_PROFILES: dict[str, AgentProfile] = {
     ),
     INTENT_SMALLTALK: AgentProfile(
         agent="chat",
-        # 默认子 agent:保持与引入路由之前一致的工具配置。
-        default_tools=("calculator",),
+        # 默认子 agent:保持与引入路由之前一致的工具配置,外加"沉淀进
+        # 知识库"——学生随手把题目/笔记存进学科库的核心动作。
+        default_tools=("calculator", "save_to_knowledge_base"),
         allow_mcp_tools=True,
         system_prompt="",
     ),
