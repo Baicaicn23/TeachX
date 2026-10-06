@@ -298,6 +298,14 @@ class Database:
                 column="onboarding_completed",
                 definition="INTEGER NOT NULL DEFAULT 1",
             )
+            # P3 多学科:记忆带学科标签(来源会话所选知识库),注入时当前
+            # 学科优先。旧数据默认无标签,视为全局记忆。
+            await self._ensure_column(
+                connection,
+                table="user_memories",
+                column="subject",
+                definition="TEXT NOT NULL DEFAULT ''",
+            )
             await self._migrate_fts_to_trigram(connection)
             await connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_sessions_user_updated "

@@ -247,3 +247,37 @@ def test_percentile_nearest_and_empty() -> None:
     # 线性插值:p50 = 2.5;p95 落在 [3,4] 区间内插到 3.85。
     assert percentile([1.0, 2.0, 3.0, 4.0], 0.5) == 2.5
     assert percentile([1.0, 2.0, 3.0, 4.0], 0.95) == 3.85
+
+
+@pytest.mark.asyncio
+async def test_memories_prefer_current_subject(tmp_path: Path) -> None:
+    """多学科:注入时当前学科的记忆排最前,其他学科靠后但不消失。"""
+
+    database = Database(tmp_path / "multi.db")
+    await database.initialize()
+    memory = MemoryService(database)
+    await memory.remember("u1", "在准备微积分月底测验", subject="微积分基础")
+    await memory.remember("u1", "在学 Java 的集合框架", subject="Java库")
+
+    calc_first = await memory.list_memories("u1", prefer_subject="微积分基础")
+    java_first = await memory.list_memories("u1", prefer_subject="Java库")
+
+    assert calc_first[0].content == "在准备微积分月底测验"
+    assert len(calc_first) == 2, "其他学科的记忆靠后但不消失"
+    assert java_first[0].content == "在学 Java 的集合框架"
+
+
+def test_profile_block_renders_multi_subject_goals() -> None:
+    from teachx.runtime.prompts import build_system_prompt
+
+    prompt = build_system_prompt(
+        "chat",
+        learner_profile={
+            "learning_goals": [
+                {"subject": "微积分", "goal": "掌握极限与导数", "progress": 40},
+                {"subject": "Java", "goal": "写出一个控制台记账程序"},
+            ]
+        },
+    )
+    assert "微积分学习目标：掌握极限与导数（进度 40%）" in prompt
+    assert "Java学习目标：写出一个控制台记账程序" in prompt

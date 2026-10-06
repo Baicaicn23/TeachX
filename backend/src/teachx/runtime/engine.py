@@ -189,8 +189,14 @@ class AgentRuntime:
                 current_user = await self.auth.get_user(scope)
                 if current_user is not None and not current_user.personalization_enabled:
                     scope = ""
+            # P3 多学科:当前会话所选的第一个知识库作为学科上下文,
+            # 该学科的记忆排最前,其他学科靠后但不消失。
+            prefer = command.knowledge_bases[0] if command.knowledge_bases else ""
             memories = [
-                item.content for item in await self.memory.list_memories(scope)
+                item.content
+                for item in await self.memory.list_memories(
+                    scope, prefer_subject=prefer
+                )
             ]
         personalization_applied = bool(learner_profile)
         messages = self._build_messages(
@@ -649,7 +655,12 @@ class AgentRuntime:
             # 记忆失败绝不影响已完成的回合。
             if self.memory is not None and self.memory_enabled and not partial_turn:
                 await self.memory.extract_and_remember(
-                    user_id, user_message.content, session_id=session_id
+                    user_id,
+                    user_message.content,
+                    session_id=session_id,
+                    subject=(
+                        command.knowledge_bases[0] if command.knowledge_bases else ""
+                    ),
                 )
         except _TurnTimeoutError:
             budget_status = await self._budget_status(user_id)

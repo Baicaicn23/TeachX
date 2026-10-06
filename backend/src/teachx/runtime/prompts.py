@@ -108,6 +108,18 @@ def _build_profile_block(profile: dict[str, Any]) -> str:
             if progress is not None:
                 value = f"{value}（进度 {progress}%）"
         lines.append(f"- {label}：{value[:160]}")
+    # P3 多学科:档案允许多个学科目标,全部带学科标注注入,
+    # 模型按当前提问的学科自然取用相关的目标。
+    for goal in profile.get("learning_goals") or []:
+        if not isinstance(goal, dict):
+            continue
+        subject = " ".join(str(goal.get("subject") or "综合").split())[:20]
+        text = " ".join(str(goal.get("goal") or "").split())[:100]
+        if not text:
+            continue
+        progress = goal.get("progress")
+        progress_text = f"（进度 {progress}%）" if progress is not None else ""
+        lines.append(f"- {subject}学习目标：{text}{progress_text}")
     if not lines:
         return ""
 

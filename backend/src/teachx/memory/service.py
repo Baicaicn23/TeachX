@@ -56,6 +56,7 @@ class MemoryItem:
     content: str
     source_session_id: str
     created_at: float
+    subject: str = ""
 
 
 def extract_facts(user_message: str) -> list[str]:
@@ -100,6 +101,7 @@ class MemoryService:
         content: str,
         *,
         source_session_id: str = "",
+        subject: str = "",
     ) -> MemoryItem | None:
         """记录一条记忆;内容重复时返回 None(不覆盖原时间戳)。"""
 
@@ -116,8 +118,8 @@ class MemoryService:
                 return None
             cursor = await connection.execute(
                 "INSERT INTO user_memories (user_id, content, source_session_id,"
-                " created_at) VALUES (?, ?, ?, ?)",
-                (scope, clean, source_session_id, time.time()),
+                " subject, created_at) VALUES (?, ?, ?, ?, ?)",
+                (scope, clean, source_session_id, subject, time.time()),
             )
             memory_id = int(cursor.lastrowid)
             await connection.commit()
@@ -127,6 +129,7 @@ class MemoryService:
             content=clean,
             source_session_id=source_session_id,
             created_at=time.time(),
+            subject=subject,
         )
 
     async def list_memories(
@@ -134,18 +137,24 @@ class MemoryService:
         user_id: str,
         *,
         limit: int = MAX_INJECTION_ITEMS,
+        prefer_subject: str = "",
     ) -> list[MemoryItem]:
-        """某用户的记忆,最近的在前。"""
+        """某用户的记忆;带 prefer_subject 时该学科的记忆排最前。"""
 
         async with self.database.connect() as connection:
             cursor = await connection.execute(
-                "SELECT id, user_id, content, source_session_id, created_at"
+                "SELECT id, user_id, content, source_session_id, subject, created_at"
                 " FROM user_memories WHERE user_id = ?"
-                " ORDER BY created_at DESC, id DESC LIMIT ?",
-                (memory_scope(user_id), max(1, int(limit))),
+                " ORDER BY created_at DESC, id DESC LIMIT 200",
+                (memory_scope(user_id),),
             )
             rows = await cursor.fetchall()
-        return [self._item_from_row(row) for row in rows]
+        items = [self._item_from_row(row) for row in rows]
+        if prefer_subject:
+            matched = [i for i in items if i.subject == prefer_subject]
+            rest = [i for i in items if i.subject != prefer_subject]
+            items = matched + rest
+        return items[: max(1, int(limit))]
 
     async def delete_memory(self, user_id: str, memory_id: int) -> bool:
         """删除一条记忆;只能删自己的,删不到返回 False。"""
@@ -164,6 +173,7 @@ class MemoryService:
         user_message: str,
         *,
         session_id: str = "",
+        subject: str = "",
     ) -> list[str]:
         """抽取 + 存储;返回实际新增的记忆内容。任何失败不抛出。"""
 
@@ -171,7 +181,7 @@ class MemoryService:
             stored: list[str] = []
             for fact in extract_facts(user_message):
                 item = await self.remember(
-                    user_id, fact, source_session_id=session_id
+                    user_id, fact, source_session_id=session_id, subject=subject
                 )
                 if item is not None:
                     stored.append(item.content)
@@ -187,6 +197,7 @@ class MemoryService:
             content=str(row["content"]),
             source_session_id=str(row["source_session_id"] or ""),
             created_at=float(row["created_at"]),
+            subject=str(row["subject"] if "subject" in row.keys() else ""),
         )
 
 
