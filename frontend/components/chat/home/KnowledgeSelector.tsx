@@ -56,6 +56,43 @@ export default function KnowledgeSelector({
   };
   const rootRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
+  // P3 学生主线:下拉展开时拉取每个库最近沉淀的文件,让"存进去的东西"
+  // 在选择器里直接可见(否则沉淀只存在于 RAG 回答里,用户无从确认)。
+  const [recentFiles, setRecentFiles] = useState<
+    Record<string, { name: string; modified: number }[]>
+  >({});
+  const baseNamesKey = knowledgeBases.map((kb) => kb.name).join("|");
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const names = baseNamesKey.split("|").filter(Boolean);
+    (async () => {
+      const entries = await Promise.all(
+        names.map(async (name) => {
+          try {
+            const res = await fetch(
+              `/api/knowledge-bases/${encodeURIComponent(name)}/files`,
+            );
+            if (!res.ok) return [name, []];
+            const data = await res.json();
+            const files = (data.files ?? []) as {
+              name: string;
+              modified: number;
+            }[];
+            files.sort((a, b) => b.modified - a.modified);
+            return [name, files.slice(0, 3)];
+          } catch {
+            return [name, []];
+          }
+        }),
+      );
+      if (!cancelled) setRecentFiles(Object.fromEntries(entries));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, baseNamesKey]);
 
   // Close on outside click.
   useOutsideClick(rootRef, open, () => setOpen(false));
@@ -162,11 +199,26 @@ export default function KnowledgeSelector({
                             : "text-[var(--muted-foreground)]"
                         }`}
                       />
-                      <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-[var(--foreground)]">
-                        {kb.name}
-                        {kb.provenance_label && (
-                          <span className="ml-2 opacity-60">
-                            {kb.provenance_label}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[12.5px] font-medium text-[var(--foreground)]">
+                          {kb.name}
+                          {kb.provenance_label && (
+                            <span className="ml-2 opacity-60">
+                              {kb.provenance_label}
+                            </span>
+                          )}
+                        </span>
+                        {(recentFiles[kb.name] ?? []).length > 0 && (
+                          <span className="block truncate text-[11px] text-[var(--muted-foreground)]">
+                            {(() => {
+                              const files = recentFiles[kb.name];
+                              const stamp = (file: { name: string; modified: number }) => {
+                                const d = new Date(file.modified * 1000);
+                                return `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${file.name}`;
+                              };
+                              const head = files.map(stamp).join("、");
+                              return files.length >= 3 ? `${head} …` : head;
+                            })()}
                           </span>
                         )}
                       </span>
