@@ -47,8 +47,6 @@ import {
   shouldSurfaceLoadFailure,
 } from "@/lib/session-load";
 import StarterSuggestions from "@/components/chat/home/StarterSuggestions";
-import PersonalizationStatus from "@/components/chat/home/PersonalizationStatus";
-import LearningGoalStatus from "@/components/chat/home/LearningGoalStatus";
 // Imported eagerly so the drawer shell is always mounted off-screen —
 // clicking a chip becomes a single CSS class flip, no chunk fetch + double
 // render. The heavy renderers inside still load lazily.
@@ -2720,8 +2718,9 @@ export default function ChatWorkspace({
                   </div>
                 </div>
               ) : null}
-              <PersonalizationStatus />
-              <LearningGoalStatus />
+              {/* 个性化状态条与目标条已从主页撤下(2026-10-06 用户反馈:
+                  常驻一级 UI 噪音过大)。机制保留——档案/目标/记忆仍在
+                  每回合注入;编辑入口在个人资料页(/profile)。 */}
               <ChatComposer
                 composerRef={composerRef}
                 capMenuRef={capMenuRef}
