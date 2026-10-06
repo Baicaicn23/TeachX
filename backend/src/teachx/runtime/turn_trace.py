@@ -34,6 +34,7 @@ _ERROR_LAYERS = {
     "provider_server_error": "model",
     "provider_http_error": "model",
     "stream_interrupted": "model",
+    "output_truncated": "model",
     "turn_timeout": "orchestration",
     "max_rounds_exceeded": "orchestration",
     "runtime_error": "orchestration",

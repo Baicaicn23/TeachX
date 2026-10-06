@@ -254,3 +254,49 @@ def test_stream_interruption_maps_to_unified_code() -> None:
 
     assert error.code == "stream_interrupted"
     assert error.retryable is True
+
+
+class OutputTruncatedProvider(BaseProvider):
+    """Simulates a reasoning model burning the whole output budget on
+    thinking: finish_reason="length" with no visible content."""
+
+    name = "output-truncated-test"
+
+    async def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        *,
+        max_output_tokens: int | None = None,
+    ) -> LLMResult:
+        del messages, tools, max_output_tokens
+        return LLMResult(content="", finish_reason="length")
+
+    async def stream(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        *,
+        max_output_tokens: int | None = None,
+    ) -> AsyncIterator[ProviderEvent]:
+        del messages, tools, max_output_tokens
+        yield StreamFinished(LLMResult(content="", finish_reason="length"))
+
+
+@pytest.mark.asyncio
+async def test_output_truncation_without_content_fails_openly(tmp_path: Path) -> None:
+    events = await _run(
+        OutputTruncatedProvider(), EchoTool(), max_rounds=1, tmp_path=tmp_path
+    )
+
+    done = events[-1]
+    assert done["metadata"]["status"] == "failed"
+    assert done["metadata"]["error_code"] == "output_truncated"
+    assert done["metadata"]["retryable"] is True
+    error = _terminal_error(events)
+    assert error is not None
+    assert error["metadata"]["error_code"] == "output_truncated"
+    assert error["metadata"]["retryable"] is True
+    # 空回答不能伪装成 completed:没有 result 事件,也没有助手消息。
+    assert not [event for event in events if event["type"] == "result"]
+    assert done["metadata"]["assistant_message_id"] is None

@@ -462,6 +462,15 @@ class AgentRuntime:
                 )
                 saved_events.append(notice_event)
                 yield notice_event
+            elif finish_reason == "length" and not final_content:
+                # P1 评测发现的真实失败模式:推理模型把输出预算全部花在思考
+                # 内容上,正文为空。空回答不能伪装成 completed,走诚实失败契约。
+                finish_reason = "output_truncated"
+                turn_error_code = "output_truncated"
+                turn_error_message = (
+                    "本轮输出预算被模型的思考内容耗尽，没有生成可见回答。"
+                    "请重试，或提高输出上限（TEACHX_MAX_OUTPUT_TOKENS）。"
+                )
 
             final_title = fallback_title
             if is_first_turn:
