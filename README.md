@@ -95,6 +95,9 @@ TeachX 是一个受 [DeepTutor](https://github.com/HKUDS/DeepTutor) 启发的独
 打开 [http://localhost:3000](http://localhost:3000)，发送"计算 7 * 9"，
 应该看到模型调用计算器工具并流式回答 63。
 
+新用户上手路线见 [使用指南](docs/使用指南.md)——十分钟走完
+"让助手认识你 → 选知识库提问 → 算题/出题/记住你"的完整闭环。
+
 不想消耗 API 额度？用 Mock 模型启动：
 
 ```bash

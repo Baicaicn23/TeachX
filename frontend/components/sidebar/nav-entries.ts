@@ -1,15 +1,8 @@
-import { LEARNING_HUB } from '@/lib/learning-routes'
 import {
-  Bot,
   BookOpenCheck,
   Brain,
   Cable,
-  GraduationCap,
-  HeartHandshake,
   House,
-  LayoutGrid,
-  ListTodo,
-  PenLine,
   Settings,
   type LucideIcon,
 } from 'lucide-react'
@@ -58,37 +51,10 @@ export const PRIMARY_NAV: NavEntry[] = [
     tooltipKey: 'Connect DeepSeek, OpenAI, or another OpenAI-compatible model platform.',
     requires: 'llm',
   },
-  {
-    href: '/partners',
-    label: 'Partners',
-    icon: HeartHandshake,
-    tooltipKey: 'Partners tooltip',
-    requires: 'llm',
-  },
-  {
-    href: LEARNING_HUB,
-    label: 'Personalized Learning',
-    icon: GraduationCap,
-    tooltipKey: 'One tutor, your own way to learn.',
-  },
-  { href: '/space', label: 'Learning Space', icon: LayoutGrid, tooltipKey: 'Space tooltip' },
-  { href: '/kanban', label: 'Task Board', icon: ListTodo, tooltipKey: 'kanban.intro' },
-  {
-    href: '/co-writer',
-    label: 'Co-Writer',
-    icon: PenLine,
-    tooltipKey: 'Co-Writer tooltip',
-    requires: 'llm',
-    defaultCollapsed: true,
-  },
-  {
-    href: '/agents',
-    label: 'My Agents',
-    icon: Bot,
-    tooltipKey: 'Agents tooltip',
-    defaultCollapsed: true,
-  },
 ]
+// TeachX 边界说明:继承自上游前端的 /partners、/space、/kanban、/co-writer、
+// /agents、/learning 六个入口不是本产品的功能,已从导航移除;路由仍保留,
+// 仅供学习前端代码时对照。
 
 export const SECONDARY_NAV: NavEntry[] = [{ href: '/settings', label: 'Settings', icon: Settings }]
 

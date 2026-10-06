@@ -7,16 +7,16 @@ router = APIRouter(tags=["frontend-compatibility"])
 SUGGESTIONS = {
     "suggestions": [
         {
-            "label": "用一个具体问题理解 Agent Loop",
-            "prompt": "用大一学生能懂的方式解释 Agent Loop，并举一个工具调用的例子。",
+            "label": "用我的知识库讲一个概念",
+            "prompt": "结合我的知识库，用通俗的例子讲讲什么是极限，并给出出处。",
         },
         {
-            "label": "把一次 RAG 流程画成数据流",
-            "prompt": "把 RAG 从文档切分到最终回答的完整数据流讲清楚。",
+            "label": "算一道题并解释步骤",
+            "prompt": "帮我算一下 37 * 43，并解释计算步骤。",
         },
         {
-            "label": "生成一组人工智能基础练习题",
-            "prompt": "围绕人工智能基础生成 3 道由浅入深的练习题。",
+            "label": "来一组练习题测测我",
+            "prompt": "围绕我的知识库内容出 3 道由浅入深的练习题，先不要给答案。",
         },
     ],
     "stale": False,
