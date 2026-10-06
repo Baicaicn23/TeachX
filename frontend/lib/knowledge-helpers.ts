@@ -355,7 +355,13 @@ export const kbDetailSections = (kb: KnowledgeBase): KbDetailSection[] =>
     : kb.metadata?.type === "kiwix"
       ? ["kiwix", "settings"]
     : KB_DETAIL_SECTIONS.filter(
-        (section) => section !== "devices" && section !== "kiwix" && (section !== "folders" || !kb.metadata?.type),
+        (section) =>
+          section !== "devices" &&
+          section !== "kiwix" &&
+          // P3 UX 清理:GitHub / 网络 / 关联文件夹三个入口没有 TeachX 后端,不再展示。
+          section !== "folders" &&
+          section !== "github" &&
+          section !== "web",
       );
 
 /** Local source folders belong to ordinary, TeachX-managed indexed KBs. */
