@@ -2,6 +2,7 @@ import {
   BookOpenCheck,
   Brain,
   Cable,
+  Database,
   House,
   Settings,
   type LucideIcon,
@@ -30,6 +31,14 @@ export interface NavEntry {
  */
 export const PRIMARY_NAV: NavEntry[] = [
   { href: '/chat', label: 'Home', icon: House, tooltipKey: 'Home tooltip', requires: 'llm' },
+  {
+    // 学生主线:学科知识库是"平时的沉淀罐",一等入口,紧挨主页。
+    href: '/knowledge-bases',
+    label: '知识库',
+    icon: Database,
+    tooltipKey: '按学科浏览你沉淀的题目与资料,支持上传、预览。',
+    requires: 'llm',
+  },
   {
     href: '/learning-records',
     label: 'Learning records',
