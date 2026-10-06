@@ -65,20 +65,20 @@ TeachX 是一个受 [DeepTutor](https://github.com/HKUDS/DeepTutor) 启发的独
 ### 🔌 MCP 工具接入——即插即用的外部工具生态
 
 自写的最小 MCP stdio 客户端（JSON-RPC 2.0，零依赖）在应用启动时连接外部 server，
-发现并注册远端工具，Agent 无感使用：
+发现并注册远端工具，Agent 无感使用——已接入**官方 Filesystem server** 实测：
 
 ```text
-[mcp] server=demo 注册工具: ['mcp_demo_fake_echo']   ← 真实启动日志
+[mcp] server=filesystem 注册工具: ['mcp_filesystem_read_file', ...]  ← 真实启动日志(14 个官方工具)
 ```
 
-配置即接入：`TEACHX_MCP_SERVERS='[{"name":"demo","command":"python","args":["server.py"]}]'`
+配置即接入：`TEACHX_MCP_SERVERS='[{"name":"filesystem","command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","/你的资料目录"]}]'`
 
 <details>
 <summary><b>当前边界（诚实说明，也是下一步方向）</b></summary>
 
 - 运行时 Embedding 默认 Mock；真实向量模型（智谱 embedding-3）已联调并有评测对比，日常使用可一键切换
 - 回答忠实度与引用质量评测未做（需要真实模型 + LLM-as-a-Judge）
-- 工具权限审批、沙箱执行、MCP Server 端生态未做（MCP Client 已接入）
+- 工具权限审批(HITL)、MCP Server 端未做（MCP Client 已接入官方 Filesystem server 实测;写/删类工具无人工确认,演示请限定授权目录）
 - Docker 配置保留但未实机验证，未做公网部署
 - 项目定位是**简历作品集**（Agent 开发实习方向），不追求生产上线
 

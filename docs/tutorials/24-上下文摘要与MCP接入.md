@@ -106,13 +106,38 @@ tools 列表时仍以列表为准。
   握手→发现→注册全链路打通。
 - 全量检查:102 passed。
 
+## 二·五、接真实 server:官方 Filesystem(P2 后补,零代码)
+
+E9a 验证时用的是假 server。2026-10-06 用**零代码**(纯配置)接入了官方
+`@modelcontextprotocol/server-filesystem`,把"能连真的"补上:
+
+```bash
+TEACHX_MCP_SERVERS='[{"name":"filesystem","command":"npx","args":[
+  "-y","@modelcontextprotocol/server-filesystem","/path/to/你的学习资料"]}]'
+```
+
+- 启动即注册官方 server 的 14 个真实工具(read_file / list_directory /
+  search_files / write_file / edit_file / move / delete 等,全部带
+  `mcp_filesystem_` 前缀),客户端一行未改——这就是协议标准的意义。
+- 真实模型端到端(Websocket 实测,deepseek-flash 一轮):模型自主完成
+  `list_allowed_directories → directory_tree → read_text_file` 三步调用链,
+  准确列出文件夹里的笔记并复述内容,回合 completed。
+- 失败路径诚实:读不存在的文件返回 `success=False`,模型如实告知。
+- 接入即受既有安全设施约束:外部工具保守政策(串行、不重试)、幂等保护、
+  E4 串行策略;MCP 工具只对允许外部工具的子 agent(默认对话/讲解)启用。
+
+**当前缺口(如实声明)**:写/删类工具尚无人工确认门禁(HITL)——演示时把
+授权目录限定在专用演示文件夹,不要指向重要数据。HITL 是可选穿插项。
+
 ## 三、当前边界
 
-- 摘要是本地拼接,不做模型总结;不会跨会话持久记忆(长期记忆仍是 E7 远期)。
+- 摘要是本地拼接,不做模型总结;跨会话长期记忆已在 P3 独立实现
+  (教程 28),不依赖本节。
 - MCP 客户端只实现了 stdio 传输与 tools 能力,没有 resources/prompts/采样;
   单 server 顺序请求,无并发流水线。
 - MCP 工具的参数脱敏未声明(E3 的 sensitive_arguments 对动态工具留空),
   接入可信 server 后再按需补充。
+- 写/删类 MCP 工具无人工确认门禁(HITL 未做),演示时限定授权目录。
 
 ## 四、面试问答
 
