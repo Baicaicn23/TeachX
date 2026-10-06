@@ -924,8 +924,9 @@ class AgentRuntime:
         """组装最后一条用户消息:带图片附件时用多模态内容块。
 
         OpenAI 兼容格式:text 部分放提问原文,图片以 base64 data URL 作为
-        image_url 内容块(实测 deepseek-flash 端点接受)。最多 4 张,防止
-        请求体失控;附件原文仍随用户消息持久化,与发给模型的内容互不影响。
+        image_url 内容块(实测 deepseek-flash 端点接受)。最多 8 张(约一次
+        拍完一份作业的量),防止请求体失控;附件原文仍随用户消息持久化,
+        与发给模型的内容互不影响。
         """
         text = user_message.content
         images = [
@@ -937,9 +938,9 @@ class AgentRuntime:
         if not images:
             return {"role": "user", "content": text}
         parts: list[dict[str, Any]] = [
-            {"type": "text", "text": text or "请看这张图片。"}
+            {"type": "text", "text": text or "请看这些图片。"}
         ]
-        for attachment in images[:4]:
+        for attachment in images[:8]:
             parts.append(
                 {
                     "type": "image_url",

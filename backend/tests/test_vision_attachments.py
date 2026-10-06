@@ -93,3 +93,30 @@ async def test_text_only_attachments_stay_plain_text(tmp_path: Path) -> None:
     assert events[-1]["metadata"]["status"] == "completed"
     user_messages = [m for m in provider.last_messages if m["role"] == "user"]
     assert user_messages[-1]["content"] == "帮我看这份资料"
+
+
+@pytest.mark.asyncio
+async def test_image_cap_at_eight(tmp_path: Path) -> None:
+    """超过 8 张时截断到 8 张,防止请求体失控。"""
+
+    command = StartTurnCommand(
+        type="start_turn",
+        content="这十张图分别是什么？",
+        attachments=[
+            {
+                "type": "image",
+                "filename": f"img-{index}.png",
+                "mime_type": "image/png",
+                "base64": f"QUJD{index}",
+            }
+            for index in range(10)
+        ],
+    )
+    provider, events = await _run(command, tmp_path)
+
+    assert events[-1]["metadata"]["status"] == "completed"
+    user_messages = [m for m in provider.last_messages if m["role"] == "user"]
+    image_parts = [
+        part for part in user_messages[-1]["content"] if part["type"] == "image_url"
+    ]
+    assert len(image_parts) == 8
