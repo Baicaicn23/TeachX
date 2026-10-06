@@ -36,3 +36,6 @@ data/*
 
 # Evals:真实模型 Judge 报告(不可复现,仅手动生成留存)
 backend/evals/reports/
+
+# Obsidian 编辑器本机配置
+docs/.obsidian/

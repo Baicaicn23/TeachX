@@ -284,6 +284,9 @@ async def search_knowledge_base(
                 "chunk_index": hit.chunk_index,
                 "content": hit.content,
                 "score": hit.score,
+                # P2:widened_bases=True 表示来自空结果回退的跨库检索,
+                # retrievers 记录命中通道,供前端与评测观测。
+                "metadata": hit.metadata,
             }
             for hit in hits
         ]
