@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import time
 import uuid
@@ -8,6 +9,7 @@ from collections.abc import AsyncIterator
 from typing import Any, Literal
 
 from teachx.auth.service import AuthService
+from teachx.knowledge.extractors import extract_text
 from teachx.memory.service import MemoryService
 from teachx.providers.base import (
     BaseProvider,
@@ -925,6 +927,8 @@ class AgentRuntime:
 
         OpenAI 兼容格式:text 部分放提问原文,图片以 base64 data URL 作为
         image_url 内容块(实测 deepseek-flash 端点接受)。最多 8 张(约一次
+        拍完一份作业的量);PDF/TXT/MD 附件解析出文本后内联进消息
+        (每份截断 6000 字),任何模型都能读。
         拍完一份作业的量),防止请求体失控;附件原文仍随用户消息持久化,
         与发给模型的内容互不影响。
         """
@@ -935,6 +939,9 @@ class AgentRuntime:
             if str(attachment.get("mime_type") or "").startswith("image/")
             and attachment.get("base64")
         ]
+        attached_text = AgentRuntime._extract_text_attachments(user_message.attachments)
+        if attached_text:
+            text = f"{text}\n\n{attached_text}" if text else attached_text
         if not images:
             return {"role": "user", "content": text}
         parts: list[dict[str, Any]] = [
@@ -953,6 +960,37 @@ class AgentRuntime:
                 }
             )
         return {"role": "user", "content": parts}
+
+    @staticmethod
+    def _extract_text_attachments(attachments: list[dict[str, Any]] | None) -> str:
+        """把 PDF/TXT/MD 附件解析为内联文本上下文(每份截断 6000 字)。
+
+        与知识库入库共用同一套提取器;解析失败静默跳过,不阻塞回合。
+        """
+        sections: list[str] = []
+        for attachment in attachments or []:
+            name = str(attachment.get("filename") or "附件")
+            data = attachment.get("base64")
+            if not data:
+                continue
+            lowered = name.lower()
+            if not (
+                lowered.endswith((".pdf", ".txt", ".md"))
+                or "pdf" in str(attachment.get("mime_type") or "")
+            ):
+                continue
+            try:
+                raw = base64.b64decode(data)
+                text = extract_text(name, raw)
+            except Exception:  # noqa: BLE001 — 附件解析失败不阻塞回合
+                continue
+            text = " ".join(str(text or "").split())
+            if len(text) < 20:
+                continue
+            sections.append(f"【附件《{name}》】\n{text[:6000]}")
+            if len(sections) >= 3:
+                break
+        return "\n\n".join(sections)
 
     def _enabled_tools_for(
         self,

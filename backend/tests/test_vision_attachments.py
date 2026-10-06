@@ -120,3 +120,31 @@ async def test_image_cap_at_eight(tmp_path: Path) -> None:
         part for part in user_messages[-1]["content"] if part["type"] == "image_url"
     ]
     assert len(image_parts) == 8
+
+
+@pytest.mark.asyncio
+async def test_pdf_text_attachment_is_inlined(tmp_path: Path) -> None:
+    """TXT/MD 附件解析为内联文本(PDF 走同一提取器路径)。"""
+
+    import base64
+
+    content = "线性代数第一课:矩阵是数的表格,可以整体参与运算。" * 3
+    command = StartTurnCommand(
+        type="start_turn",
+        content="帮我总结这份资料",
+        attachments=[
+            {
+                "type": "file",
+                "filename": "讲义.md",
+                "mime_type": "text/markdown",
+                "base64": base64.b64encode(content.encode()).decode(),
+            }
+        ],
+    )
+    provider, events = await _run(command, tmp_path)
+
+    assert events[-1]["metadata"]["status"] == "completed"
+    user_messages = [m for m in provider.last_messages if m["role"] == "user"]
+    text = user_messages[-1]["content"]
+    assert "【附件《讲义.md》】" in text
+    assert "矩阵是数的表格" in text
