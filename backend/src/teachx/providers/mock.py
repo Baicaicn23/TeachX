@@ -140,14 +140,19 @@ class MockProvider(BaseProvider):
 
     @staticmethod
     def _latest_content(messages: list[dict[str, Any]], role: str) -> str:
-        return next(
-            (
-                str(item.get("content") or "")
-                for item in reversed(messages)
-                if item.get("role") == role
-            ),
-            "",
-        )
+        for item in reversed(messages):
+            if item.get("role") != role:
+                continue
+            content = item.get("content")
+            # 多模态消息的 content 是内容块列表,取其中的 text 部分。
+            if isinstance(content, list):
+                return " ".join(
+                    str(part.get("text") or "")
+                    for part in content
+                    if isinstance(part, dict) and part.get("type") == "text"
+                )
+            return str(content or "")
+        return ""
 
     @staticmethod
     def _find_expression(text: str) -> str | None:

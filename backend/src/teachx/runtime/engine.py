@@ -916,8 +916,42 @@ class AgentRuntime:
             system = build_agent_prompt(profile, system)
         messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
         messages.extend(self._trim_history(history))
-        messages.append({"role": "user", "content": user_message.content})
+        messages.append(self._user_message_payload(user_message))
         return messages
+
+    @staticmethod
+    def _user_message_payload(user_message: SessionMessage) -> dict[str, Any]:
+        """组装最后一条用户消息:带图片附件时用多模态内容块。
+
+        OpenAI 兼容格式:text 部分放提问原文,图片以 base64 data URL 作为
+        image_url 内容块(实测 deepseek-flash 端点接受)。最多 4 张,防止
+        请求体失控;附件原文仍随用户消息持久化,与发给模型的内容互不影响。
+        """
+        text = user_message.content
+        images = [
+            attachment
+            for attachment in (user_message.attachments or [])
+            if str(attachment.get("mime_type") or "").startswith("image/")
+            and attachment.get("base64")
+        ]
+        if not images:
+            return {"role": "user", "content": text}
+        parts: list[dict[str, Any]] = [
+            {"type": "text", "text": text or "请看这张图片。"}
+        ]
+        for attachment in images[:4]:
+            parts.append(
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": (
+                            f"data:{attachment['mime_type']};base64,"
+                            f"{attachment['base64']}"
+                        )
+                    },
+                }
+            )
+        return {"role": "user", "content": parts}
 
     def _enabled_tools_for(
         self,
