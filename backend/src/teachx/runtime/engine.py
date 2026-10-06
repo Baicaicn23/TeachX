@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator
 from typing import Any, Literal
 
 from teachx.auth.service import AuthService
+from teachx.memory.service import MemoryService
 from teachx.providers.base import (
     BaseProvider,
     ContentDelta,
@@ -77,6 +78,8 @@ class AgentRuntime:
         budget_exceeded_action: Literal["block", "mock"] = "block",
         intent_enabled: bool = True,
         intent_llm_enabled: bool = True,
+        memory: MemoryService | None = None,
+        memory_enabled: bool = True,
     ) -> None:
         self.provider = provider
         self.tools = tools
@@ -96,6 +99,8 @@ class AgentRuntime:
         self.budget_exceeded_action = budget_exceeded_action
         self.intent_enabled = intent_enabled
         self.intent_llm_enabled = intent_llm_enabled
+        self.memory = memory
+        self.memory_enabled = memory_enabled
 
     async def run_turn(
         self,
@@ -169,10 +174,22 @@ class AgentRuntime:
         }
 
         learner_profile: dict[str, Any] | None = None
+        memories: list[str] = []
         if user_id and self.auth is not None:
             current_user = await self.auth.get_user(user_id)
             if current_user and current_user.personalization_enabled:
                 learner_profile = current_user.learner_profile or {}
+        # P3 长期记忆:真实用户与学习档案共用个性化开关;单用户模式
+        # (user_id 为空)落到 local 作用域,本地默认体验同样有记忆。
+        if self.memory is not None and self.memory_enabled:
+            scope = user_id
+            if scope and self.auth is not None:
+                current_user = await self.auth.get_user(scope)
+                if current_user is not None and not current_user.personalization_enabled:
+                    scope = ""
+            memories = [
+                item.content for item in await self.memory.list_memories(scope)
+            ]
         personalization_applied = bool(learner_profile)
         messages = self._build_messages(
             command,
@@ -180,6 +197,7 @@ class AgentRuntime:
             user_message,
             learner_profile=learner_profile,
             profile=profile,
+            memories=memories,
         )
         history_messages_used = max(0, len(messages) - 2)
         enabled_tools = self._enabled_tools_for(command, profile)
@@ -624,6 +642,13 @@ class AgentRuntime:
                     user_id=user_id,
                 )
             yield done_event
+            # P3 长期记忆:回合完整结束后,规则抽取本轮用户消息里的长期
+            # 事实(失败/部分回合不抽取)。extract_and_remember 内部吞异常,
+            # 记忆失败绝不影响已完成的回合。
+            if self.memory is not None and self.memory_enabled and not partial_turn:
+                await self.memory.extract_and_remember(
+                    user_id, user_message.content, session_id=session_id
+                )
         except _TurnTimeoutError:
             budget_status = await self._budget_status(user_id)
             usage_summary = self._usage_summary(usage_calls, budget_status)
@@ -877,11 +902,13 @@ class AgentRuntime:
         *,
         learner_profile: dict[str, Any] | None = None,
         profile: AgentProfile | None = None,
+        memories: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         system = build_system_prompt(
             command.capability or "chat",
             command.language or "zh",
             learner_profile=learner_profile,
+            memories=memories,
         )
         # P0 多 Agent 路由:子 agent 专属提示词叠加在能力提示词之后,
         # 前端显式选择的能力模式(chat/解题/出题)仍然生效。

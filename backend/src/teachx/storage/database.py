@@ -46,6 +46,15 @@ CREATE TABLE IF NOT EXISTS answer_feedback (
     UNIQUE(user_id, message_id)
 );
 
+CREATE TABLE IF NOT EXISTS user_memories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    source_session_id TEXT NOT NULL DEFAULT '',
+    created_at REAL NOT NULL,
+    UNIQUE(user_id, content)
+);
+
 CREATE TABLE IF NOT EXISTS practice_questions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT NOT NULL,
@@ -100,6 +109,9 @@ ON answer_feedback(user_id, updated_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_answer_feedback_session
 ON answer_feedback(session_id, message_id);
+
+CREATE INDEX IF NOT EXISTS idx_user_memories_user
+ON user_memories(user_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_practice_questions_user
 ON practice_questions(user_id, knowledge_base, created_at DESC);

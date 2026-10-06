@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     # (关闭后只走规则分类,零 API 消耗)。
     intent_enabled: bool = True
     intent_llm_enabled: bool = True
+    # P3 跨会话长期记忆:规则抽取(显式指令/自我陈述)写入 user_memories,
+    # 下会话注入系统提示词(与个性化开关共用同一数据边界)。
+    memory_enabled: bool = True
 
     daily_token_budget: int = Field(default=0, ge=0)
     budget_exceeded_action: Literal["block", "mock"] = "block"

@@ -12,6 +12,40 @@ from teachx.auth.service import AuthError, InvalidCredentials, InvalidToken
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+@router.get("/memories")
+async def list_memories(
+    user: UserRecord = Depends(require_user),
+    container: ApplicationContainer = Depends(get_container),
+) -> dict[str, list[dict[str, object]]]:
+    """当前用户的跨会话长期记忆,最近的在前(P3)。"""
+
+    items = await container.memory.list_memories(user.id, limit=100)
+    return {
+        "memories": [
+            {
+                "id": item.id,
+                "content": item.content,
+                "created_at": item.created_at,
+            }
+            for item in items
+        ]
+    }
+
+
+@router.delete("/memories/{memory_id}")
+async def delete_memory(
+    memory_id: int,
+    user: UserRecord = Depends(require_user),
+    container: ApplicationContainer = Depends(get_container),
+) -> dict[str, bool]:
+    """删除一条长期记忆;只能删自己的。"""
+
+    deleted = await container.memory.delete_memory(user.id, memory_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="记忆不存在")
+    return {"deleted": True}
+
+
 class Credentials(BaseModel):
     username: str = Field(min_length=3, max_length=64)
     password: str = Field(min_length=8, max_length=128)

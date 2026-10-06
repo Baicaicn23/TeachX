@@ -14,6 +14,7 @@ from teachx.auth.service import AuthService
 from teachx.config import get_settings
 from teachx.knowledge.embeddings import build_embedding_provider
 from teachx.knowledge.service import KnowledgeService
+from teachx.memory.service import MemoryService
 from teachx.model_connections.service import ModelConnectionService
 from teachx.practice.service import PracticeService
 from teachx.providers import build_provider
@@ -51,6 +52,7 @@ async def lifespan(app: FastAPI):
     )
     practice = PracticeService(database)
     usage = UsageService(database)
+    memory = MemoryService(database)
     model_connections = ModelConnectionService(
         database,
         secret=settings.auth_secret,
@@ -113,6 +115,8 @@ async def lifespan(app: FastAPI):
         budget_exceeded_action=settings.budget_exceeded_action,
         intent_enabled=settings.intent_enabled,
         intent_llm_enabled=settings.intent_llm_enabled,
+        memory=memory,
+        memory_enabled=settings.memory_enabled,
     )
     app.state.container = ApplicationContainer(
         settings=settings,
@@ -124,6 +128,7 @@ async def lifespan(app: FastAPI):
         provider=provider,
         tools=tools,
         runtime=runtime,
+        memory=memory,
     )
     yield
 
