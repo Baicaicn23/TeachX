@@ -31,7 +31,7 @@ TeachX 是一个受 [DeepTutor](https://github.com/HKUDS/DeepTutor) 启发的独
 | 🧭 | **意图识别 + 多 Agent 路由** | 每回合先判意图（六类教学场景），按路由表交给专属提示词 + 工具策略的子 agent；工具最小权限在 schema 与执行层双重生效 |
 | 🧩 | **自研 Agent Harness** | 不依赖 Agent 框架，手写流式多轮工具调用循环，每层设计都能讲清为什么 |
 | 🛡️ | **工具可靠性工程** | 错误分类 · 有限退避重试 · 幂等去重 · 敏感参数脱敏 · 有界并发 · 双层超时 |
-| 🔎 | **混合检索 RAG** | SQLite FTS5 + 向量 + RRF 融合排序，来源引用，检索继承用户数据权限 |
+| 🔎 | **混合检索 RAG** | FTS5 trigram 中文检索 + 向量 + RRF 融合排序,同义词查询扩写,跨库回退,来源引用,检索继承用户数据权限 |
 | 📊 | **评测与可观测** | 检索 Hit@K/MRR 基线门禁 · 意图分类考卷 · 任务级端到端考卷（路由/工具/内容断言）· LLM-as-a-Judge 小样本体检 · 回合 trace 五层归因 |
 | 🧠 | **上下文与工具生态** | 超长历史自动压缩为前情提要；MCP 协议客户端（自写，零依赖）接入外部工具 |
 | 📉 | **成本与上下文工程** | token 全量记录与展示 · 每日预算 · 输出/历史/工具结果上限 · 超限阻止或回退 |
@@ -128,9 +128,10 @@ OPENAI_API_KEY=你的密钥
 ./scripts/check.sh     # 预期 All checks passed（后端测试全绿,全程 Mock 零 API 消耗）
 ```
 
-- 检索质量可复现:固定评测集(关键词卷 + 语义改写卷)双基线;真实 Embedding
-  (智谱 embedding-3)接入后语义卷 MRR 0.639 → 0.667,关键词卷无退化,
-  退化自动拦截:`cd backend && uv run python -m teachx.evals.run_rag_eval`
+- 检索质量可复现:固定评测集(关键词卷 + 语义改写卷)双基线。P2 检索召回
+  优化(FTS trigram 中文分词 + 同义词扩写 + 跨库回退)后:关键词卷
+  MRR 0.688 → 0.938,语义卷 0.639 → 1.000,退化自动拦截:
+  `cd backend && uv run python -m teachx.evals.run_rag_eval`
 - 意图路由质量可复现:38 条标注意图考卷,规则分类器准确率门槛 0.90 +
   基线回归门禁:`cd backend && uv run python -m teachx.evals.run_intent_eval`
 - 端到端行为可复现:7 条任务级考卷(路由/工具权限/回答要点断言),Mock
@@ -153,7 +154,7 @@ TeachX/
 │       ├── usage/           token 用量与日预算
 │       └── storage/         SQLite 持久化与迁移
 ├── frontend/                Next.js 界面（基于 Apache-2.0 复用）
-├── docs/                    导航、参考、规划、规范、27 篇教程
+├── docs/                    导航、参考、规划、规范、28 篇教程
 └── scripts/                 dev.sh 一键启动 · check.sh 一键检查
 ```
 
@@ -164,7 +165,7 @@ TeachX/
 - [全部文档导航](docs/README.md) · [教程目录](docs/tutorials/README.md)
 - 入门：[如何阅读这个项目](docs/tutorials/00-如何阅读这个项目.md) · [一次提问的完整旅程](docs/tutorials/01-一次提问的完整旅程.md)
 - Agent 稳定性：[工具政策/重试/幂等/脱敏](docs/tutorials/19-工具执行政策与重试.md) · [多工具执行](docs/tutorials/20-多工具执行策略.md) · [超时与恢复](docs/tutorials/21-整回合超时与断线恢复.md)
-- 评测可观测：[RAG 检索评测](docs/tutorials/22-RAG检索评测.md) · [回合 trace 诊断](docs/tutorials/23-回合trace诊断.md) · [意图识别与多 Agent 路由](docs/tutorials/25-意图识别与多Agent路由.md) · [端到端 Agent 评测](docs/tutorials/26-端到端Agent评测.md)
+- 评测可观测：[RAG 检索评测](docs/tutorials/22-RAG检索评测.md) · [回合 trace 诊断](docs/tutorials/23-回合trace诊断.md) · [意图识别与多 Agent 路由](docs/tutorials/25-意图识别与多Agent路由.md) · [端到端 Agent 评测](docs/tutorials/26-端到端Agent评测.md) · [检索召回优化](docs/tutorials/27-检索召回优化.md)
 - 参考：[架构与数据流](docs/参考/架构与数据流.md) · [API 一览](docs/参考/API一览.md) · [配置说明](docs/参考/配置说明.md) · [数据库表结构](docs/参考/数据库表结构.md)
 
 ## 🗺️ 开发路线
@@ -180,8 +181,9 @@ TeachX/
 | ✅ | 上下文与工具生态 | 历史前情提要 · 自写 MCP 客户端接入外部工具（E7/E9a） |
 | ✅ | 意图与多 Agent 路由 | 意图六分类 · 规则 + LLM 两层识别 · 六个子 agent · 工具最小权限 · 意图评测门禁（P0） |
 | ✅ | 端到端 Agent 评测 | 任务级考卷(路由/工具/内容断言)进 check · 失败自动归因五层 · LLM-as-a-Judge 手动体检（P1） |
+| ✅ | 检索召回优化 | FTS trigram 中文分词重建 · 同义词查询扩写 · 跨库回退 · 关键词卷 MRR +0.25 / 语义卷 +0.36（P2） |
 | 🔄 | 作品集收尾 | 演示视频三支 · 简历项目描述 · 面试问答稿 |
-| ⬜ | 端到端深度（下一步） | 检索召回优化（P2）· 长期记忆与在线监控（P3） |
+| ⬜ | 端到端深度（下一步） | 长期记忆与在线监控（P3） |
 
 > 项目定位：**简历作品集**（目标 Agent 开发实习），生产部署硬化不在计划内。
 > 详细进度见 [可视化进度地图](docs/规划/项目进度地图.html) 和 [开发路线图](docs/规划/开发路线图.md)。
