@@ -342,7 +342,11 @@ class SaveToKnowledgeBaseTool(BaseTool):
             f"> 沉淀于 {time.strftime('%Y-%m-%d')} · 来自对话\n\n{content}\n"
         )
         result = await self.service.add_document(
-            knowledge_base, f"{title}.md", dated.encode("utf-8"), owner_id=owner_id
+            knowledge_base,
+            f"{title}.md",
+            dated.encode("utf-8"),
+            owner_id=owner_id,
+            is_admin=context.is_admin if context else False,
         )
         return ToolResult(
             content=(
