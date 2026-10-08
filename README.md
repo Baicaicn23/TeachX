@@ -36,7 +36,7 @@ TeachX 是一个受 [DeepTutor](https://github.com/HKUDS/DeepTutor) 启发的独
 | 🧠 | **上下文与记忆生态** | 超长历史压缩前情提要 · 跨会话长期记忆(规则抽取,可管理) · MCP 客户端(自写,零依赖)接入外部工具 |
 | 📉 | **成本与上下文工程** | token 全量记录与展示 · 每日预算 · 输出/历史/工具结果上限 · 超限阻止或回退 |
 | 🔌 | **多模型接入** | 统一 Provider 接口，用户自带 DeepSeek/OpenAI Key（加密存储），已真实联调 |
-| 🎓 | **真实学习闭环** | 个性化提示词 · 首次引导 · 错题记录 · 练习复习 · 学习目标 · 聊天随手沉淀题目进学科库，多用户数据隔离 |
+| 🎓 | **真实学习闭环** | 个性化提示词 · 首次引导 · 错题记录（可自动长出新题） · 练习复习 · 学习目标 · 聊天随手沉淀题目进学科库，多用户数据隔离 |
 
 ## 🖼 核心功能一览（真实运行界面）
 
@@ -137,7 +137,7 @@ OPENAI_API_KEY=你的密钥
   `cd backend && uv run python -m teachx.evals.run_rag_eval`
 - 意图路由质量可复现:38 条标注意图考卷,规则分类器准确率门槛 0.90 +
   基线回归门禁:`cd backend && uv run python -m teachx.evals.run_intent_eval`
-- 端到端行为可复现:7 条任务级考卷(路由/工具权限/回答要点断言),Mock
+- 端到端行为可复现:8 条任务级考卷(路由/工具权限/回答要点断言),Mock
   全链路确定性执行,进 check 门禁:`cd backend && uv run python -m teachx.evals.run_agent_eval`
 - 失败定位：`uv run python -m teachx.runtime.turn_trace --session <会话id>`
   （把失败定位到模型 / 检索 / 工具 / 编排 / 费用五层之一）
@@ -157,7 +157,7 @@ TeachX/
 │       ├── usage/           token 用量与日预算
 │       └── storage/         SQLite 持久化与迁移
 ├── frontend/                Next.js 界面（基于 Apache-2.0 复用）
-├── docs/                    导航、参考、规划、规范、29 篇教程
+├── docs/                    导航、参考、规划、规范、30 篇教程
 └── scripts/                 dev.sh 一键启动 · check.sh 一键检查
 ```
 
