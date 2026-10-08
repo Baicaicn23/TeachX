@@ -40,7 +40,19 @@
       }
     },
     {
-      "id": "practice-no-retrieval",
+      "id": "practice-readonly-with-bases",
+      "input": "根据我的知识库给我出几道练习题",
+      "knowledge_bases": ["eval-agent-tasks"],
+      "expect": {
+        "status": "completed",
+        "intent": "practice",
+        "agent": "practice",
+        "must_call_tools": ["knowledge_search"],
+        "forbidden_tools": ["save_to_knowledge_base"]
+      }
+    },
+    {
+      "id": "practice-no-bases",
       "input": "给我出题考考我正态分布",
       "knowledge_bases": [],
       "expect": {
@@ -48,9 +60,8 @@
         "intent": "practice",
         "agent": "practice",
         "must_call_tools": [],
-        "forbidden_tools": ["knowledge_search"],
-        "answer_contains": ["练习题"],
-        "answer_not_contains": ["根据检索到的知识库资料"]
+        "forbidden_tools": ["save_to_knowledge_base"],
+        "answer_contains": ["练习题"]
       }
     },
     {

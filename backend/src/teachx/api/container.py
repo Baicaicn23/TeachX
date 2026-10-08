@@ -12,6 +12,7 @@ from teachx.providers.base import BaseProvider
 from teachx.runtime.engine import AgentRuntime
 from teachx.runtime.tools import ToolRegistry
 from teachx.storage.repository import SessionRepository
+from teachx.usage.service import UsageService
 
 
 @dataclass(slots=True)
@@ -26,3 +27,4 @@ class ApplicationContainer:
     provider: BaseProvider
     tools: ToolRegistry
     runtime: AgentRuntime
+    usage: UsageService

@@ -2,6 +2,9 @@ import { apiFetch, apiUrl } from "@/lib/api";
 
 export type PracticeRating = "again" | "hard" | "good" | "easy";
 
+/** 出题来源:从知识库片段,或从学生自己记过的误区(错题)。 */
+export type PracticeSource = "knowledge_base" | "mistakes";
+
 export interface PracticeKnowledgeBase {
   name: string;
   document_count: number;
@@ -28,6 +31,11 @@ export interface PracticeQuestion {
   knowledge_base: string;
   prompt: string;
   source_excerpt: string;
+  /** "mistake" 表示这道题出自学生记过的误区。 */
+  source?: PracticeSource | "mistake";
+  /** 只在刚出题时的响应里出现:"model" 表示由模型写题,"template" 表示模板出题。 */
+  generator?: "model" | "template";
+  source_document?: string;
   created_at: number;
   mastery_score: number;
   rating: PracticeRating | null;
@@ -99,11 +107,12 @@ export async function getPracticeQueue(
 export async function generatePracticeQuestions(
   knowledgeBase: string,
   count: number,
+  source: PracticeSource = "knowledge_base",
 ): Promise<PracticeQuestion[]> {
   const response = await apiFetch(apiUrl("/api/practice/generate"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ knowledge_base: knowledgeBase, count }),
+    body: JSON.stringify({ knowledge_base: knowledgeBase, count, source }),
   });
   if (!response.ok) {
     throw new Error(await readError(response, "Failed to generate practice"));

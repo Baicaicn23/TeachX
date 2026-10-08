@@ -50,8 +50,9 @@ async def lifespan(app: FastAPI):
         max_file_bytes=settings.max_upload_bytes,
         embedder=embedder,
     )
-    practice = PracticeService(database)
+    # 出题会调用模型写题,用量要记账,所以先建 usage 再建 practice。
     usage = UsageService(database)
+    practice = PracticeService(database, usage)
     memory = MemoryService(database)
     model_connections = ModelConnectionService(
         database,
@@ -129,6 +130,7 @@ async def lifespan(app: FastAPI):
         tools=tools,
         runtime=runtime,
         memory=memory,
+        usage=usage,
     )
     yield
 

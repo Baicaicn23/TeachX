@@ -251,13 +251,28 @@ async def test_calculation_turn_routes_to_calculator_agent(tmp_path: Path) -> No
 
 
 @pytest.mark.asyncio
-async def test_practice_intent_denies_knowledge_search_even_with_bases(
-    tmp_path: Path,
-) -> None:
+async def test_practice_agent_is_read_only(tmp_path: Path) -> None:
+    """练习子 agent 能读不能写:检索可见,写入工具既不可见也执行不了。
+
+    2026-10-08 起练习 agent 从"不给任何工具"改成"只读":选了知识库时能检索
+    资料用于出题,但出题不该改动学习者的数据,所以写入工具放进黑名单——
+    只是"不在默认集里"不够,用户显式选择会绕过默认集。
+    """
+
     provider = _LoopRecordingProvider(
         intent_output='{"intent": "practice", "confidence": 0.9}',
         loop_tool_calls=[
-            [ToolCall(id="call-1", name="knowledge_search", arguments={"query": "测试"})]
+            [
+                ToolCall(
+                    id="call-1",
+                    name="save_to_knowledge_base",
+                    arguments={
+                        "knowledge_base": "我的资料库",
+                        "title": "题",
+                        "content": "内容",
+                    },
+                )
+            ]
         ],
     )
     runtime = await _build_runtime(tmp_path, provider)
@@ -269,11 +284,12 @@ async def test_practice_intent_denies_knowledge_search_even_with_bases(
 
     events = [event async for event in runtime.run_turn(command)]
 
-    # 模型看不到检索工具的 schema……
-    assert "knowledge_search" not in provider.seen_tool_names[0]
-    # ……模型仍发起检索调用时,执行层也会拦截。
+    # 能读:检索工具在 schema 里。
+    assert "knowledge_search" in provider.seen_tool_names[0]
+    # 不能写:写入工具不在 schema 里,模型硬发也会被执行层拦下。
+    assert "save_to_knowledge_base" not in provider.seen_tool_names[0]
     tool_result = next(event for event in events if event["type"] == "tool_result")
-    assert tool_result["metadata"]["tool"] == "knowledge_search"
+    assert tool_result["metadata"]["tool"] == "save_to_knowledge_base"
     assert tool_result["metadata"]["success"] is False
     assert tool_result["metadata"]["error_code"] == "tool_not_allowed"
     done = events[-1]
@@ -290,12 +306,13 @@ async def test_practice_intent_filters_user_selected_tools(tmp_path: Path) -> No
     command = StartTurnCommand(
         type="start_turn",
         content="出一道题",
-        tools=["knowledge_search", "calculator"],
+        tools=["knowledge_search", "calculator", "save_to_knowledge_base"],
     )
 
     events = [event async for event in runtime.run_turn(command)]
 
-    assert provider.seen_tool_names[0] == ["calculator"]
+    # 用户显式选择的工具里:只读的留下(检索+计算器),写入的被黑名单剔除。
+    assert set(provider.seen_tool_names[0]) == {"knowledge_search", "calculator"}
     assert events[-1]["metadata"]["intent"] == INTENT_PRACTICE
 
 

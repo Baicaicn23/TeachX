@@ -3,7 +3,19 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from teachx.practice.generator import (
+    build_excerpt_instruction,
+    build_mistake_instruction,
+    template_excerpt_question,
+    template_mistake_question,
+    write_question,
+)
 from teachx.storage.database import Database
+from teachx.usage.service import UsageService
+
+# 出题来源:从知识库片段出题(原有),或从学生自己记过的误区出题(新增)。
+SOURCE_KNOWLEDGE_BASE = "knowledge_base"
+SOURCE_MISTAKES = "mistakes"
 
 _RATING_DELTA = {
     "again": -10,
@@ -26,18 +38,54 @@ class PracticeError(ValueError):
 class PracticeService:
     """Create and review practice questions from the learner's knowledge bases."""
 
-    def __init__(self, database: Database) -> None:
+    def __init__(self, database: Database, usage: UsageService | None = None) -> None:
         self.database = database
+        self.usage = usage
 
     async def generate(
         self,
         *,
         user_id: str,
-        knowledge_base: str,
+        knowledge_base: str = "",
         count: int,
+        source: str = SOURCE_KNOWLEDGE_BASE,
+        provider: Any | None = None,
     ) -> list[dict[str, Any]]:
+        """出练习题。
+
+        ``source`` 决定题目从哪里来:知识库片段(原有)或学生记过的误区(新增)。
+        ``provider`` 是当前用户的模型,用来"写"一道新题;为 None(或 Mock)时
+        退回模板出题——所以这个参数是可选的,出题不会因为没有模型而失败。
+        """
+
         if count < 1 or count > 10:
             raise PracticeError("每次可生成 1 到 10 道练习题")
+        if source == SOURCE_MISTAKES:
+            return await self._generate_from_mistakes(
+                user_id=user_id,
+                knowledge_base=knowledge_base,
+                count=count,
+                provider=provider,
+            )
+        if source != SOURCE_KNOWLEDGE_BASE:
+            raise PracticeError(f"不支持的出题来源：{source}")
+        return await self._generate_from_knowledge_base(
+            user_id=user_id,
+            knowledge_base=knowledge_base,
+            count=count,
+            provider=provider,
+        )
+
+    async def _generate_from_knowledge_base(
+        self,
+        *,
+        user_id: str,
+        knowledge_base: str,
+        count: int,
+        provider: Any | None,
+    ) -> list[dict[str, Any]]:
+        if not knowledge_base:
+            raise PracticeError("请先选择知识库")
         async with self.database.connect() as connection:
             cursor = await connection.execute(
                 """
@@ -75,45 +123,187 @@ class PracticeService:
             created: list[dict[str, Any]] = []
             for row in rows:
                 excerpt = _normalize_excerpt(str(row["content"]))
-                prompt = (
-                    "请用自己的话解释下面这段资料。回答时说明核心概念、"
-                    "关键关系和一个具体例子。\n\n"
-                    f"资料摘录：\n「{excerpt}」"
+                written = await write_question(
+                    provider,
+                    build_excerpt_instruction(excerpt),
+                    fallback=template_excerpt_question(excerpt),
                 )
-                cursor = await connection.execute(
-                    """
-                    INSERT INTO practice_questions (
-                        user_id, knowledge_base, source_chunk_id,
-                        prompt, source_excerpt, created_at
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        user_id,
-                        knowledge_base,
-                        int(row["chunk_id"]),
-                        prompt,
-                        excerpt,
-                        now,
-                    ),
+                await self._record_question_usage(
+                    user_id=user_id, provider=provider, written=written
                 )
                 created.append(
-                    {
-                        "id": int(cursor.lastrowid),
-                        "knowledge_base": knowledge_base,
-                        "prompt": prompt,
-                        "source_excerpt": excerpt,
-                        "source_document": str(row["filename"] or ""),
-                        "created_at": now,
-                        "rating": None,
-                        "due_at": None,
-                        "answer": "",
-                        "mastery_score": 0,
-                        "attempt_count": 0,
-                    }
+                    await self._insert_question(
+                        connection,
+                        user_id=user_id,
+                        knowledge_base=knowledge_base,
+                        source_chunk_id=int(row["chunk_id"]),
+                        source_feedback_id=None,
+                        prompt=written.prompt,
+                        excerpt=excerpt,
+                        source_document=str(row["filename"] or ""),
+                        generator=written.generator,
+                        now=now,
+                    )
                 )
             await connection.commit()
         return created
+
+    async def _generate_from_mistakes(
+        self,
+        *,
+        user_id: str,
+        knowledge_base: str,
+        count: int,
+        provider: Any | None,
+    ) -> list[dict[str, Any]]:
+        """从学生自己记过的误区出题。
+
+        只取有学科标签、且还没出过题的误区:练习题在数据库里必须挂在某个
+        知识库下(题目表对知识库是必填的),所以没有学科的误区出不了题。
+        切到"从错题出题"时未选知识库,就是"所有学科的错题都要"。
+        """
+
+        async with self.database.connect() as connection:
+            cursor = await connection.execute(
+                """
+                SELECT
+                    f.id,
+                    f.knowledge_base,
+                    f.note,
+                    COALESCE(parent.content, '') AS question
+                FROM answer_feedback f
+                JOIN messages assistant ON assistant.id = f.message_id
+                LEFT JOIN messages parent ON parent.id = assistant.parent_message_id
+                WHERE f.user_id = ?
+                  AND f.rating = 'wrong'
+                  AND f.knowledge_base != ''
+                  AND (? = '' OR f.knowledge_base = ?)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM practice_questions q
+                      WHERE q.user_id = f.user_id AND q.source_feedback_id = f.id
+                  )
+                ORDER BY f.updated_at DESC, f.id DESC
+                LIMIT ?
+                """,
+                (user_id, knowledge_base, knowledge_base, count),
+            )
+            rows = await cursor.fetchall()
+            if not rows:
+                raise PracticeError(
+                    "还没有可用于出题的新错题：请先在回答下方点“记录我的误区”写下你的误区"
+                )
+
+            now = time.time()
+            created: list[dict[str, Any]] = []
+            for row in rows:
+                subject = str(row["knowledge_base"])
+                note = str(row["note"] or "")
+                asked = str(row["question"] or "")
+                excerpt = _normalize_excerpt(f"{asked} {note}".strip())
+                written = await write_question(
+                    provider,
+                    build_mistake_instruction(
+                        subject=subject, question=asked, note=note
+                    ),
+                    fallback=template_mistake_question(question=asked, note=note),
+                )
+                await self._record_question_usage(
+                    user_id=user_id, provider=provider, written=written
+                )
+                created.append(
+                    await self._insert_question(
+                        connection,
+                        user_id=user_id,
+                        knowledge_base=subject,
+                        source_chunk_id=None,
+                        source_feedback_id=int(row["id"]),
+                        prompt=written.prompt,
+                        excerpt=excerpt,
+                        source_document="",
+                        generator=written.generator,
+                        now=now,
+                    )
+                )
+            await connection.commit()
+        return created
+
+    async def _insert_question(
+        self,
+        connection: Any,
+        *,
+        user_id: str,
+        knowledge_base: str,
+        source_chunk_id: int | None,
+        source_feedback_id: int | None,
+        prompt: str,
+        excerpt: str,
+        source_document: str,
+        generator: str,
+        now: float,
+    ) -> dict[str, Any]:
+        cursor = await connection.execute(
+            """
+            INSERT INTO practice_questions (
+                user_id, knowledge_base, source_chunk_id, source_feedback_id,
+                prompt, source_excerpt, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                knowledge_base,
+                source_chunk_id,
+                source_feedback_id,
+                prompt,
+                excerpt,
+                now,
+            ),
+        )
+        return {
+            "id": int(cursor.lastrowid),
+            "knowledge_base": knowledge_base,
+            "prompt": prompt,
+            "source_excerpt": excerpt,
+            "source_document": source_document,
+            "source": "mistake" if source_feedback_id is not None else "knowledge_base",
+            "generator": generator,
+            "created_at": now,
+            "rating": None,
+            "due_at": None,
+            "answer": "",
+            "mastery_score": 0,
+            "attempt_count": 0,
+        }
+
+    async def _record_question_usage(
+        self,
+        *,
+        user_id: str,
+        provider: Any | None,
+        written: Any,
+    ) -> None:
+        """把"模型写题"这一次调用的用量记进账单(模板出题不计)。
+
+        出题不属于任何会话,所以 session_id/turn_id 留空。记账失败不能影响
+        出题——题目已经写好了,账目问题不该让用户拿不到题。
+        """
+
+        if self.usage is None or provider is None or written.usage is None:
+            return
+        name = str(getattr(provider, "name", ""))
+        try:
+            await self.usage.record_call(
+                user_id=user_id,
+                session_id="",
+                turn_id="",
+                call_kind="practice_question",
+                provider=name,
+                model=str(getattr(provider, "model", name)),
+                usage=written.usage,
+                billable=True,
+            )
+        except Exception:  # noqa: BLE001 — 记账失败不影响出题
+            return
 
     async def queue(
         self,
@@ -133,6 +323,7 @@ class PracticeService:
                     q.knowledge_base,
                     q.prompt,
                     q.source_excerpt,
+                    q.source_feedback_id,
                     q.created_at,
                     COALESCE(p.mastery_score, 0) AS mastery_score,
                     a.rating,
@@ -351,6 +542,7 @@ def _question_from_row(row: Any) -> dict[str, Any]:
         "knowledge_base": str(row["knowledge_base"]),
         "prompt": str(row["prompt"]),
         "source_excerpt": str(row["source_excerpt"] or ""),
+        "source": "mistake" if row["source_feedback_id"] is not None else "knowledge_base",
         "created_at": float(row["created_at"]),
         "mastery_score": int(row["mastery_score"]),
         "rating": str(row["rating"]) if row["rating"] else None,

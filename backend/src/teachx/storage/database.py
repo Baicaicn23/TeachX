@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS answer_feedback (
     message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
     rating TEXT NOT NULL CHECK(rating IN ('helpful', 'unclear', 'wrong')),
     note TEXT NOT NULL DEFAULT '',
+    knowledge_base TEXT NOT NULL DEFAULT '',
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL,
     UNIQUE(user_id, message_id)
@@ -60,6 +61,7 @@ CREATE TABLE IF NOT EXISTS practice_questions (
     user_id TEXT NOT NULL,
     knowledge_base TEXT NOT NULL REFERENCES knowledge_bases(name) ON DELETE CASCADE,
     source_chunk_id INTEGER REFERENCES knowledge_chunks(id) ON DELETE SET NULL,
+    source_feedback_id INTEGER REFERENCES answer_feedback(id) ON DELETE SET NULL,
     prompt TEXT NOT NULL,
     source_excerpt TEXT NOT NULL DEFAULT '',
     created_at REAL NOT NULL,
@@ -306,7 +308,29 @@ class Database:
                 column="subject",
                 definition="TEXT NOT NULL DEFAULT ''",
             )
+            # 2026-10-08 错题重练:错题带学科(来源会话所选知识库),这样
+            # "从错题出题"才能把新题挂到对应学科下;练习题记录它出自哪条
+            # 误区(为空表示来自知识库片段)。旧数据学科为空,视为无学科错题。
+            await self._ensure_column(
+                connection,
+                table="answer_feedback",
+                column="knowledge_base",
+                definition="TEXT NOT NULL DEFAULT ''",
+            )
+            await self._ensure_column(
+                connection,
+                table="practice_questions",
+                column="source_feedback_id",
+                definition="INTEGER REFERENCES answer_feedback(id) ON DELETE SET NULL",
+            )
             await self._migrate_fts_to_trigram(connection)
+            # 同一条误区只出一道题(部分唯一索引:知识库来源的行该列为空,
+            # 不参与约束)。
+            await connection.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_practice_questions_user_feedback "
+                "ON practice_questions(user_id, source_feedback_id) "
+                "WHERE source_feedback_id IS NOT NULL"
+            )
             await connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_sessions_user_updated "
                 "ON sessions(user_id, updated_at DESC)"

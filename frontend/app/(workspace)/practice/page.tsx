@@ -27,6 +27,7 @@ import {
   type PracticeKnowledgeBase,
   type PracticeQuestion,
   type PracticeRating,
+  type PracticeSource,
   type PracticeSummary,
 } from "@/lib/practice-review-api";
 
@@ -75,6 +76,7 @@ export default function PracticePage() {
   const [queue, setQueue] = useState<PracticeQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedKnowledgeBase, setSelectedKnowledgeBase] = useState("");
+  const [source, setSource] = useState<PracticeSource>("knowledge_base");
   const [questionCount, setQuestionCount] = useState(3);
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(true);
@@ -82,6 +84,13 @@ export default function PracticePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
+
+  // 学习记录页的"用它出练习题"会带 ?source=mistakes 过来。用 location 直接读,
+  // 不用 useSearchParams——后者在预渲染时需要 Suspense 边界。
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("source");
+    if (requested === "mistakes") setSource("mistakes");
+  }, []);
 
   const refresh = useCallback(async () => {
     const [nextSummary, nextBases, nextQueue] = await Promise.all([
@@ -121,14 +130,16 @@ export default function PracticePage() {
   const currentQuestion = queue[currentIndex] ?? null;
 
   async function generate() {
-    if (!selectedKnowledgeBase) return;
+    // "从错题出题"不需要选知识库——错题的学科已经记在题目上了。
+    if (source === "knowledge_base" && !selectedKnowledgeBase) return;
     setGenerating(true);
     setError("");
     setSavedMessage("");
     try {
       const created = await generatePracticeQuestions(
-        selectedKnowledgeBase,
+        source === "knowledge_base" ? selectedKnowledgeBase : "",
         questionCount,
+        source,
       );
       const [nextSummary, nextQueue] = await Promise.all([
         getPracticeSummary(),
@@ -291,6 +302,11 @@ export default function PracticePage() {
                 <span className="rounded-full bg-[var(--muted)] px-2.5 py-1 font-medium text-[var(--foreground)]">
                   {currentQuestion.knowledge_base}
                 </span>
+                {currentQuestion.source === "mistake" ? (
+                  <span className="rounded-full border border-[var(--primary)]/40 px-2.5 py-1 font-medium text-[var(--primary)]">
+                    {t("From your mistake")}
+                  </span>
+                ) : null}
                 <span>
                   {t("Question {{current}} of {{total}}", {
                     current: currentIndex + 1,
@@ -385,28 +401,51 @@ export default function PracticePage() {
               {t("Generate more practice")}
             </h2>
             <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">
-              {t(
-                "Each unused text chunk becomes one open-ended recall question.",
-              )}
+              {source === "knowledge_base"
+                ? t(
+                    "Each unused text chunk becomes one open-ended recall question.",
+                  )
+                : t(
+                    "Each saved misunderstanding becomes a new question on the same idea.",
+                  )}
             </p>
           </div>
         </div>
         {knowledgeBases.length ? (
           <div className="mt-4 flex flex-wrap items-end gap-3">
-            <label className="min-w-[220px] flex-1 text-xs text-[var(--muted-foreground)]">
-              {t("Knowledge base")}
+            <label className="text-xs text-[var(--muted-foreground)]">
+              {t("Question source")}
               <select
-                value={selectedKnowledgeBase}
-                onChange={(event) => setSelectedKnowledgeBase(event.target.value)}
-                className="mt-1.5 block w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)]"
+                value={source}
+                onChange={(event) =>
+                  setSource(event.target.value as PracticeSource)
+                }
+                className="mt-1.5 block rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)]"
               >
-                {knowledgeBases.map((base) => (
-                  <option key={base.name} value={base.name}>
-                    {base.name} · {base.chunk_count} {t("chunks")}
-                  </option>
-                ))}
+                <option value="knowledge_base">
+                  {t("From knowledge base")}
+                </option>
+                <option value="mistakes">{t("From my mistakes")}</option>
               </select>
             </label>
+            {source === "knowledge_base" ? (
+              <label className="min-w-[220px] flex-1 text-xs text-[var(--muted-foreground)]">
+                {t("Knowledge base")}
+                <select
+                  value={selectedKnowledgeBase}
+                  onChange={(event) =>
+                    setSelectedKnowledgeBase(event.target.value)
+                  }
+                  className="mt-1.5 block w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)]"
+                >
+                  {knowledgeBases.map((base) => (
+                    <option key={base.name} value={base.name}>
+                      {base.name} · {base.chunk_count} {t("chunks")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <label className="text-xs text-[var(--muted-foreground)]">
               {t("Question count")}
               <select
@@ -424,7 +463,10 @@ export default function PracticePage() {
             <button
               type="button"
               onClick={() => void generate()}
-              disabled={generating || !selectedKnowledgeBase}
+              disabled={
+                generating ||
+                (source === "knowledge_base" && !selectedKnowledgeBase)
+              }
               className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--primary-foreground)] hover:opacity-90 disabled:opacity-50"
             >
               {generating ? t("Generating…") : t("Generate questions")}

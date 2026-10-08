@@ -393,7 +393,7 @@ class SessionRepository:
         async with self.database.connect() as connection:
             cursor = await connection.execute(
                 """
-                SELECT m.id, m.session_id, m.role, s.user_id
+                SELECT m.id, m.session_id, m.role, m.metadata, s.user_id
                 FROM messages m
                 JOIN sessions s ON s.id = m.session_id
                 WHERE m.id = ?
@@ -405,17 +405,21 @@ class SessionRepository:
                 return None
             if user_id and str(message["user_id"]) != user_id:
                 return None
+            # 错题继承当轮所选知识库作为学科:这样"从错题出题"才能把新题
+            # 挂到对应学科下。元数据缺失或不合法一律记为空学科,不影响反馈本身。
+            subject = _subject_from_message_metadata(message["metadata"])
             await connection.execute(
                 """
                 INSERT INTO answer_feedback (
-                    user_id, session_id, message_id, rating, note,
+                    user_id, session_id, message_id, rating, note, knowledge_base,
                     created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(user_id, message_id) DO UPDATE SET
                     session_id = excluded.session_id,
                     rating = excluded.rating,
                     note = excluded.note,
+                    knowledge_base = excluded.knowledge_base,
                     updated_at = excluded.updated_at
                 """,
                 (
@@ -424,6 +428,7 @@ class SessionRepository:
                     message_id,
                     rating,
                     note.strip()[:2000],
+                    subject,
                     now,
                     now,
                 ),
@@ -457,6 +462,7 @@ class SessionRepository:
                     f.message_id,
                     f.rating,
                     f.note,
+                    f.knowledge_base,
                     f.created_at,
                     f.updated_at,
                     s.title AS session_title,
@@ -600,6 +606,27 @@ class SessionRepository:
         )
 
 
+def _subject_from_message_metadata(raw: Any) -> str:
+    """从导师回答的元数据里取当轮所选知识库,作为错题的学科标签。
+
+    取第一个知识库(与长期记忆的学科标签口径一致,见 runtime/engine.py)。
+    元数据缺失、不是 JSON、或没有知识库时返回空串——错题本身照常保存。
+    """
+
+    if not raw:
+        return ""
+    try:
+        metadata = json.loads(raw)
+    except (TypeError, ValueError):
+        return ""
+    if not isinstance(metadata, dict):
+        return ""
+    bases = metadata.get("knowledge_bases")
+    if not isinstance(bases, list) or not bases:
+        return ""
+    return str(bases[0])
+
+
 def _answer_feedback_from_row(row: Any) -> dict[str, Any]:
     return {
         "id": int(row["id"]),
@@ -607,6 +634,7 @@ def _answer_feedback_from_row(row: Any) -> dict[str, Any]:
         "message_id": int(row["message_id"]),
         "rating": str(row["rating"]),
         "note": str(row["note"] or ""),
+        "knowledge_base": str(row["knowledge_base"] or ""),
         "session_title": str(row["session_title"] or ""),
         "question": str(row["question"] or ""),
         "answer": str(row["answer"] or ""),

@@ -16,6 +16,7 @@ async def _add_feedback_message(
     session_id: str,
     question: str,
     answer: str,
+    knowledge_bases: list[str] | None = None,
 ):
     await repository.ensure_session(
         session_id,
@@ -32,7 +33,58 @@ async def _add_feedback_message(
         role="assistant",
         content=answer,
         parent_message_id=user_message.id,
+        metadata={"knowledge_bases": knowledge_bases or []},
     )
+
+
+def test_feedback_inherits_the_subject_of_the_turn(tmp_path: Path) -> None:
+    """错题继承当轮所选知识库作为学科——"从错题出题"要靠它把新题挂到对应学科下。
+
+    学科取助手消息元数据里的第一个知识库,与长期记忆的学科标签同一口径。
+    元数据缺失或没有知识库时记为空学科,错题本身照常保存。
+    """
+
+    async def scenario() -> None:
+        database = Database(tmp_path / "subject.db")
+        await database.initialize()
+        repository = SessionRepository(database)
+
+        with_subject = await _add_feedback_message(
+            repository,
+            user_id="user-1",
+            session_id="s-with",
+            question="什么是特征值？",
+            answer="特征值描述线性变换在某个方向上的缩放。",
+            knowledge_bases=["线性代数", "微积分"],
+        )
+        record = await repository.upsert_answer_feedback(
+            user_id="user-1",
+            message_id=with_subject.id,
+            rating="wrong",
+            note="我把特征向量和基向量混淆了。",
+        )
+        assert record is not None
+        # 取第一个知识库,和记忆的学科标签口径一致。
+        assert record["knowledge_base"] == "线性代数"
+
+        without_subject = await _add_feedback_message(
+            repository,
+            user_id="user-1",
+            session_id="s-without",
+            question="什么是导数？",
+            answer="导数是瞬时变化率。",
+            knowledge_bases=[],
+        )
+        bare = await repository.upsert_answer_feedback(
+            user_id="user-1",
+            message_id=without_subject.id,
+            rating="wrong",
+            note="没选知识库的一次提问。",
+        )
+        assert bare is not None
+        assert bare["knowledge_base"] == ""
+
+    asyncio.run(scenario())
 
 
 def test_feedback_links_to_message_and_respects_user_ownership(tmp_path: Path) -> None:

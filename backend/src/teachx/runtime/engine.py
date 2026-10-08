@@ -554,6 +554,8 @@ class AgentRuntime:
                     "history_messages_used": history_messages_used,
                     "budget_fallback": budget_fallback,
                     "usage_summary": usage_summary,
+                    # 本轮所选知识库:错题据此继承学科,用于"从错题出题"。
+                    "knowledge_bases": list(command.knowledge_bases),
                     **intent_metadata,
                 }
                 if partial_turn:

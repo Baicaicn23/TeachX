@@ -276,6 +276,16 @@ export default function LearningRecordsPage() {
                   {record.rating === "wrong" && record.note ? (
                     <button
                       type="button"
+                      onClick={() => router.push("/practice?source=mistakes")}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] hover:opacity-80"
+                    >
+                      <BookOpenCheck size={14} />
+                      {t("Practice this mistake")}
+                    </button>
+                  ) : null}
+                  {record.rating === "wrong" && record.note ? (
+                    <button
+                      type="button"
                       onClick={() => void reviewMisunderstanding(record)}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary-foreground)] hover:opacity-90"
                     >
